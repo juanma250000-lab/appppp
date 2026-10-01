@@ -4,6 +4,7 @@ import android.content.Context
 import com.mision.app.core.time.ClockProvider
 import com.mision.app.core.time.SystemClockProvider
 import com.mision.app.data.local.MisionDatabase
+import com.mision.app.data.local.RoomTransactionRunner
 import com.mision.app.data.local.SettingsDataStore
 import com.mision.app.data.repository.GamificationRepositoryImpl
 import com.mision.app.data.repository.MissionRepositoryImpl
@@ -34,16 +35,14 @@ class AppContainer(context: Context) {
 
     val clock: ClockProvider = SystemClockProvider()
 
-    val database: MisionDatabase by lazy { MisionDatabase.getInstance(appContext) }
-
-    val dataStore: SettingsDataStore by lazy { SettingsDataStore(appContext) }
+    private val database: MisionDatabase by lazy { MisionDatabase.getInstance(appContext) }
 
     val notifier: MisionNotifier by lazy { MisionNotifier(appContext) }
 
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(appContext, clock) }
 
     val settingsRepository: SettingsRepository by lazy {
-        SettingsRepositoryImpl(dataStore, reminderScheduler)
+        SettingsRepositoryImpl(SettingsDataStore(appContext), reminderScheduler)
     }
 
     val missionRepository: MissionRepository by lazy {
@@ -75,6 +74,7 @@ class AppContainer(context: Context) {
             shopRepository = shopRepository,
             petRepository = petRepository,
             settingsRepository = settingsRepository,
+            transaction = RoomTransactionRunner(database),
             clock = clock,
         )
     }

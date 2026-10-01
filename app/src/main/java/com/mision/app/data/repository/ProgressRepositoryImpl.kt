@@ -2,7 +2,6 @@ package com.mision.app.data.repository
 
 import com.mision.app.core.time.ClockProvider
 import com.mision.app.data.local.ProgressDao
-import com.mision.app.data.local.ProfileEntity
 import com.mision.app.data.toDomain
 import com.mision.app.data.toEntity
 import com.mision.app.domain.model.DailyLog
@@ -17,17 +16,17 @@ class ProgressRepositoryImpl(
 ) : ProgressRepository {
 
     override fun observeProfile(): Flow<UserProfile> =
-        dao.observeProfile().map { (it ?: defaultProfile()).toDomain() }
+        dao.observeProfile().map { it?.toDomain() ?: defaultProfile() }
 
     override suspend fun getProfile(): UserProfile =
-        (dao.getProfile() ?: defaultProfile()).toDomain()
+        dao.getProfile()?.toDomain() ?: defaultProfile()
 
     override suspend fun saveProfile(profile: UserProfile) {
         dao.upsertProfile(profile.toEntity())
     }
 
-    override fun observeDailyLogs(): Flow<List<DailyLog>> =
-        dao.observeDailyLogs().map { logs -> logs.map { it.toDomain() } }
+    override suspend fun getDailyLogs(): List<DailyLog> =
+        dao.getAllDailyLogs().map { it.toDomain() }
 
     override suspend fun getDailyLog(epochDay: Int): DailyLog? =
         dao.getDailyLog(epochDay)?.toDomain()
@@ -45,26 +44,14 @@ class ProgressRepositoryImpl(
         dao.clearPurchases()
         dao.clearDailyLogs()
 
-        val today = clock.todayEpochDay()
-        val existing = dao.getProfile()
+        val name = dao.getProfile()?.name ?: UserProfile.DEFAULT_NAME
         dao.upsertProfile(
-            ProfileEntity(
-                id = ProfileEntity.PROFILE_ID,
-                name = existing?.name ?: "Amigo",
-                totalXp = 0,
-                coins = 0,
-                totalMissionsCompleted = 0,
-                createdAtEpochDay = today,
-            ),
+            UserProfile.empty(name = name, createdAtEpochDay = clock.todayEpochDay()).toEntity(),
         )
     }
 
-    private fun defaultProfile() = ProfileEntity(
-        id = ProfileEntity.PROFILE_ID,
-        name = "Amigo",
-        totalXp = 0,
-        coins = 0,
-        totalMissionsCompleted = 0,
+    private fun defaultProfile() = UserProfile.empty(
+        name = UserProfile.DEFAULT_NAME,
         createdAtEpochDay = clock.todayEpochDay(),
     )
 }

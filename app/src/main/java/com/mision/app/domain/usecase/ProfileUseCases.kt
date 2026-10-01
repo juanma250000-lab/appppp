@@ -4,11 +4,14 @@ import com.mision.app.core.gamification.AchievementCatalog
 import com.mision.app.core.time.ClockProvider
 import com.mision.app.domain.model.DailyLog
 import com.mision.app.domain.model.DayStat
+import com.mision.app.domain.model.MissionCategory
 import com.mision.app.domain.model.ProfileStats
 import com.mision.app.domain.repository.GamificationRepository
 import com.mision.app.domain.repository.MissionRepository
+import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
-import kotlinx.coroutines.flow.first
+import com.mision.app.domain.repository.SettingsRepository
+import com.mision.app.domain.repository.TransactionRunner
 import java.time.LocalDate
 
 /**
@@ -22,19 +25,15 @@ class GetProfileStatsUseCase(
     private val clock: ClockProvider,
 ) {
     suspend operator fun invoke(): ProfileStats {
-        val profile = progressRepository.getProfile()
-        val streak = gamificationRepository.getStreak()
-        val unlocked = gamificationRepository.getUnlockedAchievementIds()
-        val logs = progressRepository.observeDailyLogs().first()
-
+        val logs = progressRepository.getDailyLogs()
         return ProfileStats(
-            profile = profile,
-            streak = streak,
-            unlockedAchievements = unlocked.size,
+            profile = progressRepository.getProfile(),
+            streak = gamificationRepository.getStreak(),
+            unlockedAchievements = gamificationRepository.getUnlockedAchievementIds().size,
             totalAchievements = AchievementCatalog.all.size,
             weekStats = weekStats(logs),
             monthCompleted = monthCompleted(logs),
-            monthGoalDays = clock.today().dayOfMonth,
+            perfectDays = logs.count { it.isPerfectDay },
         )
     }
 
@@ -42,21 +41,18 @@ class GetProfileStatsUseCase(
     private suspend fun weekStats(logs: List<DailyLog>): List<DayStat> {
         val today = clock.today()
         val byDay = logs.associateBy { it.epochDay }
-        return (0 until DAYS_IN_WEEK).map { offset ->
-            val day: LocalDate = today.minusDays((DAYS_IN_WEEK - 1 - offset).toLong())
-            val epochDay = day.toEpochDay().toInt()
+        return (DAYS_IN_WEEK - 1 downTo 0).map { daysAgo ->
+            val epochDay = today.minusDays(daysAgo.toLong()).toEpochDay().toInt()
             val log = byDay[epochDay]
-            val total = missionRepository.countForDay(epochDay).second
             DayStat(
                 epochDay = epochDay,
                 completed = log?.completedCount ?: 0,
-                total = total,
+                total = missionRepository.countForDay(epochDay).second,
                 xpEarned = log?.xpEarned ?: 0,
             )
         }
     }
 
-    /** Missions completed during the current calendar month. */
     private fun monthCompleted(logs: List<DailyLog>): Int {
         val today = clock.today()
         return logs
@@ -67,7 +63,35 @@ class GetProfileStatsUseCase(
             .sumOf { it.completedCount }
     }
 
-    companion object {
-        private const val DAYS_IN_WEEK = 7
+    private companion object {
+        const val DAYS_IN_WEEK = 7
+    }
+}
+
+/**
+ * Persists the first-run choices (names and favourite categories) and marks
+ * the onboarding as done. Blank names keep the defaults.
+ */
+class CompleteOnboardingUseCase(
+    private val progressRepository: ProgressRepository,
+    private val petRepository: PetRepository,
+    private val settingsRepository: SettingsRepository,
+    private val transaction: TransactionRunner,
+) {
+    suspend operator fun invoke(
+        userName: String,
+        petName: String,
+        categories: Set<MissionCategory>,
+    ) {
+        transaction {
+            val cleanUserName = userName.trim().take(NAME_MAX_LENGTH)
+            if (cleanUserName.isNotEmpty()) {
+                progressRepository.saveProfile(progressRepository.getProfile().copy(name = cleanUserName))
+            }
+            val pet = petRepository.getPet()
+            petRepository.savePet(pet.copy(name = petName.trim().take(NAME_MAX_LENGTH).ifEmpty { pet.name }))
+        }
+        settingsRepository.setPreferredCategories(categories)
+        settingsRepository.setOnboardingCompleted(true)
     }
 }

@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,54 +21,52 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import com.mision.app.presentation.theme.AppGradients
-import com.mision.app.presentation.theme.CoinGold
 import com.mision.app.presentation.theme.Dimens
+import com.mision.app.presentation.theme.MisionColors
 
 /**
- * Animated gradient progress bar. The track stays solid (never a hairline) so
- * the value is perceivable for users with low vision, and the semantic
- * description carries the exact percentage for TalkBack.
+ * Animated linear progress. The track is always visible so the value is
+ * perceivable with low vision, and TalkBack reads it as a real progress bar.
  */
 @Composable
-fun GradientProgressBar(
+fun ProgressBar(
     progress: Float,
+    label: String,
     modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
     height: Dp = Dimens.ProgressBarHeight,
-    colors: List<Color> = AppGradients.primary,
-    shape: Shape = RoundedCornerShape(Dimens.RadiusPill),
-    label: String? = null,
 ) {
+    val value = progress.coerceIn(0f, 1f)
     val animated by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
+        targetValue = value,
         animationSpec = tween(Dimens.AnimMedium),
         label = "progress",
     )
-    val percent = (animated * 100).toInt()
     Box(
         modifier = modifier
-            .height(height)
             .fillMaxWidth()
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), shape)
+            .height(height)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .semantics {
-                contentDescription = label?.let { "$it: $percent por ciento" }
-                    ?: "$percent por ciento completado"
+                contentDescription = label
+                progressBarRangeInfo = ProgressBarRangeInfo(value, 0f..1f)
             },
     ) {
         Box(
             Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(animated)
-                .background(Brush.horizontalGradient(colors), shape),
+                .clip(CircleShape)
+                .background(color),
         )
     }
 }
@@ -84,25 +80,28 @@ fun XpIndicator(
     xpToNext: Int,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
+    ) {
         Box(
             modifier = Modifier
-                .size(Dimens.IconXxl)
-                .clip(RoundedCornerShape(Dimens.RadiusSm))
-                .background(Brush.linearGradient(AppGradients.xp), RoundedCornerShape(Dimens.RadiusSm)),
+                .size(Dimens.IconContainer)
+                .clip(MaterialTheme.shapes.small)
+                .background(colors.secondaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = level.toString(),
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF10231A),
+                color = colors.onSecondaryContainer,
                 fontWeight = FontWeight.Bold,
             )
         }
         Column(
-            modifier = Modifier
-                .padding(start = Dimens.SpaceMd)
-                .fillMaxWidth(),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
         ) {
             Row(
@@ -112,59 +111,63 @@ fun XpIndicator(
                 Text(
                     text = "Nivel $level",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = colors.onSurface,
                 )
                 Text(
-                    text = if (xpToNext <= 0) "Nivel máximo" else "$xpIntoLevel / $xpToNext XP",
+                    text = if (xpToNext <= 0) "Nivel máximo" else "$xpIntoLevel / ${xpIntoLevel + xpToNext} XP",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = colors.onSurfaceVariant,
                 )
             }
-            GradientProgressBar(
+            ProgressBar(
                 progress = progress,
-                colors = AppGradients.xp,
-                modifier = Modifier.fillMaxWidth(),
+                color = colors.secondary,
                 label = "Experiencia del nivel $level",
             )
         }
     }
 }
 
-/** Coin counter pill used in top bars and the shop. */
+/** Coin balance pill: gold, with the coin glyph so it never relies on colour. */
 @Composable
 fun CoinPill(coins: Int, modifier: Modifier = Modifier) {
-    GlassPill(
-        modifier = modifier,
-        background = Brush.horizontalGradient(AppGradients.coin),
-        contentColor = Color(0xFF3A2A00),
+    val game = MisionColors.game
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(game.coin)
+            .padding(horizontal = Dimens.SpaceMd, vertical = Dimens.SpaceXs)
+            .semantics(mergeDescendants = true) { contentDescription = "$coins monedas" },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
     ) {
         Icon(
-            imageVector = Icons.Filled.Star,
+            imageVector = MisionIcons.Coin,
             contentDescription = null,
-            tint = Color(0xFF3A2A00),
+            tint = game.onCoin,
             modifier = Modifier.size(Dimens.IconSm),
         )
         Text(
             text = coins.toString(),
             style = MaterialTheme.typography.labelLarge,
-            color = Color(0xFF3A2A00),
-            modifier = Modifier.padding(start = Dimens.SpaceXs),
+            color = game.onCoin,
         )
     }
 }
 
-/** Reward chip: "+25 XP" or "+10" with an icon. */
+/** Small reward/metadata chip: icon + short text ("+25 XP", "10", "30 min"). */
 @Composable
-fun RewardChip(
+fun InfoChip(
     text: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.primary,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(Dimens.RadiusPill))
-            .background(tint.copy(alpha = 0.14f), RoundedCornerShape(Dimens.RadiusPill))
+            .clip(CircleShape)
+            .background(containerColor)
             .padding(horizontal = Dimens.SpaceSm, vertical = Dimens.SpaceXs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
@@ -172,35 +175,13 @@ fun RewardChip(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = tint,
+            tint = contentColor,
             modifier = Modifier.size(Dimens.IconSm),
         )
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = tint,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
-}
-
-/** Coin-styled reward chip (uses the gold accent instead of an icon tint). */
-@Composable
-fun CoinChip(text: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(Dimens.RadiusPill))
-            .background(CoinGold.copy(alpha = 0.18f), RoundedCornerShape(Dimens.RadiusPill))
-            .padding(horizontal = Dimens.SpaceSm, vertical = Dimens.SpaceXs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
-    ) {
-        Text(text = "🪙", style = MaterialTheme.typography.labelSmall)
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
+            color = contentColor,
         )
     }
 }

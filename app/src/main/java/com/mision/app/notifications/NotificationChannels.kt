@@ -8,31 +8,25 @@ import android.content.Context
 object NotificationChannels {
 
     const val REMINDERS = "mision_recordatorios"
-    const val CELEBRATIONS = "mision_celebraciones"
+
+    /**
+     * Channel of the former in-app celebration notifications. They always
+     * duplicated the celebration dialog on screen, so the channel is removed
+     * from existing installs.
+     */
+    private const val LEGACY_CELEBRATIONS = "mision_celebraciones"
 
     fun ensure(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-
         manager.createNotificationChannel(
             NotificationChannel(
                 REMINDERS,
-                "Recordatorios diarios",
+                "Recordatorio diario",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
-                description = "Avisos para que no pierdas tu racha"
-                enableVibration(true)
+                description = "Un aviso al día para que no pierdas tu racha"
             },
         )
-
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CELEBRATIONS,
-                "Logros y rachas",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                description = "Hitos, niveles y recompensas desbloqueadas"
-                enableVibration(true)
-            },
-        )
+        manager.deleteNotificationChannel(LEGACY_CELEBRATIONS)
     }
 }

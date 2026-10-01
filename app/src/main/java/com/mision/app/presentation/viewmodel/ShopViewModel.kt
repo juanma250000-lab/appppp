@@ -4,68 +4,90 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.domain.model.CosmeticSlot
 import com.mision.app.domain.model.PurchaseResult
 import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.repository.ProgressRepository
 import com.mision.app.domain.repository.ShopRepository
+import com.mision.app.domain.usecase.EquipResult
 import com.mision.app.domain.usecase.UseCases
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class ShopUiState(
-    val isLoading: Boolean = true,
-    val items: List<ShopItem> = emptyList(),
-    val ownedIds: Set<String> = emptySet(),
-    val equippedIds: Set<String> = emptySet(),
-    val coins: Int = 0,
-    val selectedSlot: CosmeticSlot? = null,
+/** One product card. */
+data class ShopItemUi(
+    val item: ShopItem,
+    val owned: Boolean,
+    val equipped: Boolean,
+    val missingCoins: Int,
 ) {
-    val visibleItems: List<ShopItem>
-        get() = if (selectedSlot == null) items else items.filter { it.category == selectedSlot }
-
-    fun isOwned(item: ShopItem): Boolean = item.id in ownedIds
-    fun isEquipped(item: ShopItem): Boolean = item.id in equippedIds
-    fun canAfford(item: ShopItem): Boolean = coins >= item.cost
+    val affordable: Boolean get() = missingCoins == 0
 }
 
-/** Tienda screen: catalogue, balances, filters and purchase rules. */
+data class ShopUiState(
+    val isLoading: Boolean = true,
+    val coins: Int = 0,
+    val ownedCount: Int = 0,
+    val totalCount: Int = 0,
+    val categories: List<CosmeticSlot> = ShopCatalog.categoryOrder,
+    val selectedCategory: CosmeticSlot? = null,
+    /** Items of the selected category (all when null), in catalogue order. */
+    val items: List<ShopItemUi> = emptyList(),
+)
+
+/** Tienda: catalogue, balance, category filter, purchases and equipping. */
 class ShopViewModel(
     private val useCases: UseCases,
-    private val shopRepository: ShopRepository,
-    private val progressRepository: ProgressRepository,
+    shopRepository: ShopRepository,
+    progressRepository: ProgressRepository,
 ) : ViewModel() {
 
-    private val _slot = MutableStateFlow<CosmeticSlot?>(null)
+    private val selectedCategory = MutableStateFlow<CosmeticSlot?>(null)
     private val _busyItemId = MutableStateFlow<String?>(null)
-    private val _message = MutableStateFlow<String?>(null)
+    private val _pendingPurchase = MutableStateFlow<ShopItemUi?>(null)
 
-    val message: StateFlow<String?> = _message
-    val busyItemId: StateFlow<String?> = _busyItemId
+    /** Item whose action is running (its button shows progress). */
+    val busyItemId: StateFlow<String?> = _busyItemId.asStateFlow()
+
+    /** Item waiting for the purchase confirmation dialog. */
+    val pendingPurchase: StateFlow<ShopItemUi?> = _pendingPurchase.asStateFlow()
+
+    val messages = UserMessages()
 
     val uiState: StateFlow<ShopUiState> = combine(
         shopRepository.observeCatalog(),
         shopRepository.observePurchases(),
         shopRepository.observeEquipped(),
         progressRepository.observeProfile(),
-        _slot,
-    ) { catalog, purchases, equipped, profile, slot ->
+        selectedCategory,
+    ) { catalog, purchases, equipped, profile, category ->
+        val equippedIds = equipped.ids
+        val order = ShopCatalog.categoryOrder
+        val items = catalog
+            .filter { category == null || it.category == category }
+            .sortedWith(compareBy({ order.indexOf(it.category) }, { it.cost }))
+            .map { item ->
+                val owned = item.id in purchases
+                ShopItemUi(
+                    item = item,
+                    owned = owned,
+                    equipped = item.id in equippedIds,
+                    missingCoins = if (owned) 0 else (item.cost - profile.coins).coerceAtLeast(0),
+                )
+            }
         ShopUiState(
             isLoading = false,
-            items = catalog,
-            ownedIds = purchases,
-            equippedIds = equipped.encode()
-                .split(";")
-                .mapNotNull { part ->
-                    part.substringAfter(':', "").takeIf { it.isNotBlank() }
-                }
-                .toSet(),
             coins = profile.coins,
-            selectedSlot = slot,
+            ownedCount = catalog.count { it.id in purchases },
+            totalCount = catalog.size,
+            selectedCategory = category,
+            items = items,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -73,50 +95,54 @@ class ShopViewModel(
         initialValue = ShopUiState(),
     )
 
-    fun onSlotSelected(slot: CosmeticSlot?) {
-        _slot.value = slot
+    fun onCategorySelected(category: CosmeticSlot?) {
+        selectedCategory.value = category
     }
 
-    fun dismissMessage() {
-        _message.value = null
+    /** Owned items toggle on the pet; others ask for confirmation first. */
+    fun onItemAction(entry: ShopItemUi) {
+        when {
+            entry.owned -> toggleEquipped(entry.item)
+            entry.affordable -> _pendingPurchase.value = entry
+            else -> messages.show("Te faltan ${entry.missingCoins} monedas. Completa misiones para conseguirlas.")
+        }
     }
 
-    /** Buys the item when possible; otherwise explains why it did not happen. */
-    fun onItemAction(item: ShopItem) {
-        if (_busyItemId.value != null) return
-        viewModelScope.launch {
-            _busyItemId.value = item.id
-            try {
-                val state = uiState.value
-                val result = if (state.isOwned(item)) {
-                    val equipResult = useCases.equipReward(item.id)
-                    _message.value = when (equipResult) {
-                        com.mision.app.domain.usecase.EquipResult.Equipped ->
-                            "¡${item.name} equipado!"
-                        com.mision.app.domain.usecase.EquipResult.Removed ->
-                            "Has quitado ${item.name}."
-                        com.mision.app.domain.usecase.EquipResult.NotOwned ->
-                            "Completa más misiones para poder usarlo."
-                    }
-                    null
-                } else {
-                    useCases.purchaseReward(item).result
-                }
-                if (result != null) {
-                    _message.value = when (result) {
-                        is PurchaseResult.Success ->
-                            "¡${item.name} comprado! Te quedan ${result.remainingCoins} monedas."
-                        is PurchaseResult.AlreadyOwned ->
-                            "Ya tienes ${item.name}. Puedes equiparlo cuando quieras."
-                        is PurchaseResult.NotEnoughCoins ->
-                            "Te faltan ${result.missing} monedas. Completa misiones para conseguir más."
-                        is PurchaseResult.UnknownItem ->
-                            "Este artículo ya no está disponible."
-                    }
-                }
-            } finally {
-                _busyItemId.value = null
+    fun dismissPurchase() {
+        _pendingPurchase.value = null
+    }
+
+    fun confirmPurchase() {
+        val entry = _pendingPurchase.value ?: return
+        _pendingPurchase.value = null
+        runAction(entry.item) {
+            val outcome = useCases.purchaseReward(entry.item)
+            val text = when (val result = outcome.result) {
+                is PurchaseResult.Success -> "¡${entry.item.name} es tuyo! Te quedan ${result.remainingCoins} monedas."
+                is PurchaseResult.AlreadyOwned -> "Ya tienes ${entry.item.name}."
+                is PurchaseResult.NotEnoughCoins -> "Te faltan ${result.missing} monedas."
             }
+            val achievements = outcome.newAchievements.joinToString { it.name }
+            messages.show(if (achievements.isEmpty()) text else "$text Logro desbloqueado: $achievements.")
+        }
+    }
+
+    private fun toggleEquipped(item: ShopItem) = runAction(item) {
+        messages.show(
+            when (useCases.equipReward(item)) {
+                EquipResult.Equipped -> "${item.name} equipado."
+                EquipResult.Removed -> "Has quitado ${item.name}."
+                EquipResult.NotOwned -> "Primero tienes que conseguir ${item.name}."
+            },
+        )
+    }
+
+    private fun runAction(item: ShopItem, action: suspend () -> Unit) {
+        if (_busyItemId.value != null) return
+        _busyItemId.value = item.id
+        viewModelScope.launch {
+            runCatching { action() }.onFailure { messages.show(GENERIC_ERROR) }
+            _busyItemId.value = null
         }
     }
 

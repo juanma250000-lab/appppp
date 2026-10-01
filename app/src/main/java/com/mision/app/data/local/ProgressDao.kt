@@ -67,9 +67,6 @@ interface ProgressDao {
     // ---- Daily statistics ------------------------------------------------
 
     @Query("SELECT * FROM daily_logs")
-    fun observeDailyLogs(): Flow<List<DailyLogEntity>>
-
-    @Query("SELECT * FROM daily_logs")
     suspend fun getAllDailyLogs(): List<DailyLogEntity>
 
     @Query("SELECT * FROM daily_logs WHERE epochDay = :epochDay")
@@ -82,9 +79,6 @@ interface ProgressDao {
 
     @Query("DELETE FROM mission_instances")
     suspend fun clearMissionInstances()
-
-    @Query("DELETE FROM mission_templates")
-    suspend fun clearMissionTemplates()
 
     @Query("DELETE FROM achievements")
     suspend fun clearAchievements()

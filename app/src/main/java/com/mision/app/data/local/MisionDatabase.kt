@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
 
 /**
  * Single source of truth for local structured data.
@@ -26,7 +25,6 @@ import androidx.room.TypeConverters
     version = 1,
     exportSchema = false,
 )
-@TypeConverters(MisionConverters::class)
 abstract class MisionDatabase : RoomDatabase() {
 
     abstract fun missionDao(): MissionDao

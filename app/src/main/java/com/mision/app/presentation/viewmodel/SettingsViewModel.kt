@@ -26,39 +26,44 @@ class SettingsViewModel(
         initialValue = AppSettings(),
     )
 
-    private fun launch(block: suspend () -> Unit) {
-        viewModelScope.launch { runCatching { block() } }
+    val messages = UserMessages()
+
+    private fun update(successMessage: String? = null, block: suspend () -> Unit) {
+        viewModelScope.launch {
+            runCatching { block() }
+                .onSuccess { successMessage?.let(messages::show) }
+                .onFailure { messages.show(GENERIC_ERROR) }
+        }
     }
 
-    fun setThemeMode(mode: ThemeMode) = launch { settingsRepository.setThemeMode(mode) }
-    fun setDynamicColor(enabled: Boolean) = launch { settingsRepository.setDynamicColor(enabled) }
-    fun setSoundEnabled(enabled: Boolean) = launch { settingsRepository.setSoundEnabled(enabled) }
-    fun setAnimationsEnabled(enabled: Boolean) =
-        launch { settingsRepository.setAnimationsEnabled(enabled) }
+    fun setThemeMode(mode: ThemeMode) = update { settingsRepository.setThemeMode(mode) }
+    fun setDynamicColor(enabled: Boolean) = update { settingsRepository.setDynamicColor(enabled) }
+    fun setAnimationsEnabled(enabled: Boolean) = update { settingsRepository.setAnimationsEnabled(enabled) }
 
-    fun setNotificationsEnabled(enabled: Boolean) =
-        launch { settingsRepository.setNotificationsEnabled(enabled) }
+    fun setNotificationsEnabled(enabled: Boolean) = update { settingsRepository.setNotificationsEnabled(enabled) }
 
-    fun setReminderTime(hour: Int, minute: Int) =
-        launch { settingsRepository.setReminderTime(hour, minute) }
+    /** The system refused the notification permission: keep the reminder off and say why. */
+    fun onNotificationPermissionDenied() = update(
+        successMessage = "Sin permiso de notificaciones no podemos avisarte. Puedes activarlo en los ajustes del sistema.",
+    ) { settingsRepository.setNotificationsEnabled(false) }
 
-    fun setPreferredCategories(categories: Set<MissionCategory>) =
-        launch { settingsRepository.setPreferredCategories(categories) }
+    fun setReminderTime(hour: Int, minute: Int) = update { settingsRepository.setReminderTime(hour, minute) }
 
-    fun markNotificationPermissionRequested() =
-        launch { settingsRepository.markNotificationPermissionRequested() }
+    fun toggleFavourite(category: MissionCategory) = update {
+        val current = settings.value.preferredCategories
+        settingsRepository.setPreferredCategories(
+            if (category in current) current - category else current + category,
+        )
+    }
 
     /** Full reset of the progression (keeps the preferences). */
-    fun resetProgress() = launch { useCases.resetProgress() }
+    fun resetProgress() = update(successMessage = "Progreso restablecido. ¡A por un nuevo comienzo!") {
+        useCases.resetProgress()
+    }
 
     companion object {
         fun factory(settingsRepository: SettingsRepository, useCases: UseCases) = viewModelFactory {
-            initializer {
-                SettingsViewModel(
-                    settingsRepository = settingsRepository,
-                    useCases = useCases,
-                )
-            }
+            initializer { SettingsViewModel(settingsRepository = settingsRepository, useCases = useCases) }
         }
     }
 }

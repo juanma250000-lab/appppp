@@ -156,12 +156,6 @@ class StreakCalculatorTest {
         assertFalse(StreakCalculator.isActive(StreakState.empty(), day))
     }
 
-    @Test
-    fun `streak start day is derived from the chain length`() {
-        assertEquals(day - 2, StreakCalculator.streakStartDay(state(current = 3, lastDay = day)))
-        assertNull(StreakCalculator.streakStartDay(StreakState.empty()))
-    }
-
     // ---- Undo ---------------------------------------------------------------
     @Test
     fun `undoing the tip of the chain steps it back`() {

@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  windowLightNavigationBar only exists from API 27, so the value that must not
-  crash on API 26 devices lives in this version-qualified folder.
--->
 <resources>
-    <style name="Theme.Mision" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/mision_splash_light</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowActionModeOverlay">true</item>
+    <!-- windowLightNavigationBar only exists from API 27. -->
+    <style name="Theme.Mision" parent="Base.Theme.Mision">
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
     </style>
 </resources>

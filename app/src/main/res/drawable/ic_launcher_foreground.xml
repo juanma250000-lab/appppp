@@ -1,36 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Brand mark: the companion's head (two ears) with a mission check cut out of
+  it. The check is wound opposite to the head, so the non-zero fill turns it
+  into a real hole and the background shows through. It sits inside the 66dp
+  safe zone, so every launcher mask keeps it whole.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="1.0"
-        android:scaleY="1.0"
-        android:pivotX="54"
-        android:pivotY="54">
-        <!-- Body of the pet -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,34c11.6,0 21,9.4 21,21c0,12.9 -9.4,24 -21,24c-11.6,0 -21,-11.1 -21,-24C33,43.4 42.4,34 54,34z" />
-        <!-- Left eye -->
-        <path
-            android:fillColor="#1B1145"
-            android:pathData="M47,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
-        <!-- Right eye -->
-        <path
-            android:fillColor="#1B1145"
-            android:pathData="M61,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
-        <!-- Smile -->
-        <path
-            android:strokeColor="#1B1145"
-            android:strokeWidth="2.4"
-            android:strokeLineCap="round"
-            android:fillColor="#00000000"
-            android:pathData="M48,61.5c1.8,3 4,4.5 6,4.5c2,0 4.2,-1.5 6,-4.5" />
-        <!-- Sparkle -->
-        <path
-            android:fillColor="#8BE9FD"
-            android:pathData="M74,32l1.8,4.2L80,38l-4.2,1.8L74,44l-1.8,-4.2L68,38l4.2,-1.8z" />
-    </group>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M33,58A21,21 0,1 0,75 58A21,21 0,1 0,33 58Z M29,39A8.5,8.5 0,1 0,46 39A8.5,8.5 0,1 0,29 39Z M62,39A8.5,8.5 0,1 0,79 39A8.5,8.5 0,1 0,62 39Z M41.74,59.26A3.2,3.2 0,0 1,46.26 54.74L51,59.48L62.74,47.74A3.2,3.2 0,0 1,67.26 52.26L51,68.52Z" />
 </vector>

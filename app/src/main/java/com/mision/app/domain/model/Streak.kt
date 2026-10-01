@@ -13,8 +13,6 @@ data class StreakState(
     val totalActiveDays: Int,
     val isActive: Boolean,
 ) {
-    val hasMilestone: Boolean get() = currentStreak >= 1
-
     companion object {
         const val NEVER = -1
 

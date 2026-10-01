@@ -34,10 +34,6 @@ class ReminderScheduler(
         workManager.enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.REPLACE, request)
     }
 
-    fun cancel() {
-        runCatching { WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK) }
-    }
-
     /** Milliseconds from now until the next occurrence of [hour]:[minute]. */
     fun delayMillisUntil(hour: Int, minute: Int, now: LocalDateTime = clock.now()): Long {
         val safeHour = hour.coerceIn(0, 23)

@@ -13,15 +13,15 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
     val notificationsEnabled: Boolean = true,
-    val reminderHour: Int = 20,
+    val reminderHour: Int = DEFAULT_REMINDER_HOUR,
     val reminderMinute: Int = 0,
-    val soundEnabled: Boolean = true,
     val animationsEnabled: Boolean = true,
+    /** Missions of these categories are listed first in the daily list. */
     val preferredCategories: Set<MissionCategory> = emptySet(),
-    val notificationPermissionRequested: Boolean = false,
 ) {
-    val reminderLabel: String
-        get() = "%02d:%02d".format(reminderHour, reminderMinute)
+    companion object {
+        const val DEFAULT_REMINDER_HOUR = 20
+    }
 }
 
 /** User-facing result of an action, always with a Spanish message. */

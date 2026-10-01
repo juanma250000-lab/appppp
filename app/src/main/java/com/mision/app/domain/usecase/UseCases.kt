@@ -7,6 +7,7 @@ import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
 import com.mision.app.domain.repository.SettingsRepository
 import com.mision.app.domain.repository.ShopRepository
+import com.mision.app.domain.repository.TransactionRunner
 
 /**
  * Manual dependency container for the domain layer.
@@ -22,10 +23,11 @@ class UseCases(
     shopRepository: ShopRepository,
     petRepository: PetRepository,
     settingsRepository: SettingsRepository,
+    transaction: TransactionRunner,
     clock: ClockProvider,
 ) {
     // ---- Missions --------------------------------------------------------
-    val getDailyMissions = GetDailyMissionsUseCase(missionRepository)
+    val getDailyMissions = GetDailyMissionsUseCase(missionRepository, settingsRepository)
     val ensureDailyMissions = EnsureDailyMissionsUseCase(missionRepository, clock)
     val completeMission = CompleteMissionUseCase(
         missionRepository = missionRepository,
@@ -33,6 +35,7 @@ class UseCases(
         gamificationRepository = gamificationRepository,
         shopRepository = shopRepository,
         petRepository = petRepository,
+        transaction = transaction,
         clock = clock,
     )
     val uncompleteMission = UncompleteMissionUseCase(
@@ -40,6 +43,7 @@ class UseCases(
         progressRepository = progressRepository,
         gamificationRepository = gamificationRepository,
         petRepository = petRepository,
+        transaction = transaction,
         clock = clock,
     )
     val createCustomMission = CreateCustomMissionUseCase(missionRepository, clock)
@@ -47,16 +51,19 @@ class UseCases(
     val deleteCustomMission = DeleteCustomMissionUseCase(missionRepository)
 
     // ---- Progression -----------------------------------------------------
-    val addExperience = AddExperienceUseCase(progressRepository)
-    val levelUp = LevelUpUseCase(progressRepository)
     val updateProfileName = UpdateProfileNameUseCase(progressRepository)
-    val setPreferredCategories = SetPreferredCategoriesUseCase(settingsRepository)
-    val getDailyLog = GetDailyLogUseCase(progressRepository)
+    val completeOnboarding = CompleteOnboardingUseCase(
+        progressRepository = progressRepository,
+        petRepository = petRepository,
+        settingsRepository = settingsRepository,
+        transaction = transaction,
+    )
     val resetProgress = ResetProgressUseCase(
         progressRepository = progressRepository,
         gamificationRepository = gamificationRepository,
         petRepository = petRepository,
         missionRepository = missionRepository,
+        transaction = transaction,
         clock = clock,
     )
 
@@ -65,23 +72,24 @@ class UseCases(
 
     // ---- Pet -------------------------------------------------------------
     val updatePetMood = UpdatePetMoodUseCase(petRepository, missionRepository, clock)
-    val interactWithPet = InteractWithPetUseCase(petRepository, missionRepository, clock)
+    val interactWithPet = InteractWithPetUseCase(petRepository, missionRepository, transaction, clock)
 
     // ---- Shop ------------------------------------------------------------
     val purchaseReward = PurchaseRewardUseCase(
         shopRepository = shopRepository,
         progressRepository = progressRepository,
         gamificationRepository = gamificationRepository,
+        transaction = transaction,
         clock = clock,
     )
-    val equipReward = EquipRewardUseCase(shopRepository)
+    val equipReward = EquipRewardUseCase(shopRepository, transaction)
+
+    // ---- Profile ---------------------------------------------------------
     val getAchievements = GetAchievementsUseCase(
         progressRepository = progressRepository,
         gamificationRepository = gamificationRepository,
         shopRepository = shopRepository,
     )
-
-    // ---- Profile ---------------------------------------------------------
     val getProfileStats = GetProfileStatsUseCase(
         progressRepository = progressRepository,
         gamificationRepository = gamificationRepository,

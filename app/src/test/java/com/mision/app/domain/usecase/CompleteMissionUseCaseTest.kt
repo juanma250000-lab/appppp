@@ -2,6 +2,7 @@ package com.mision.app.domain.usecase
 
 import com.mision.app.core.gamification.AchievementCatalog
 import com.mision.app.domain.model.PetMood
+import com.mision.app.testing.DirectTransactionRunner
 import com.mision.app.testing.FakeClock
 import com.mision.app.testing.FakeGamificationRepository
 import com.mision.app.testing.FakeMissionRepository
@@ -38,6 +39,7 @@ class CompleteMissionUseCaseTest {
             gamificationRepository = gamification,
             shopRepository = shop,
             petRepository = pet,
+            transaction = DirectTransactionRunner,
             clock = clock,
         )
     }
@@ -58,7 +60,7 @@ class CompleteMissionUseCaseTest {
 
         // 25 from the mission plus 50 from the "Primer paso" achievement.
         assertEquals(75, result.xpGained)
-        assertEquals(50, result.bonusXp)
+        assertEquals(50, result.achievementXp)
         assertEquals(20, result.coinsGained)
         assertEquals(listOf("primer_paso"), result.newAchievements.map { it.id })
 
@@ -69,9 +71,8 @@ class CompleteMissionUseCaseTest {
 
         assertEquals(1, result.completedToday)
         assertEquals(2, result.totalToday)
-        assertEquals(1, result.remainingToday)
+        assertEquals(1, result.totalToday - result.completedToday)
         assertFalse(result.perfectDay)
-        assertTrue(result.hasCelebration)
         assertFalse(result.leveledUp)
     }
 
@@ -83,8 +84,9 @@ class CompleteMissionUseCaseTest {
 
         val log = progress.getDailyLog(today)
         assertNotNull(log)
-        assertEquals(75 + 50, log!!.xpEarned)
-        assertEquals(20 + 20, log.coinsEarned)
+        // Missions + "Primer paso" (50 XP, 10) + "Completista" (150 XP, 50).
+        assertEquals(75 + 50 + 150, log!!.xpEarned)
+        assertEquals(20 + 20 + 50, log.coinsEarned)
         assertEquals(2, log.completedCount)
         assertEquals(2, log.totalMissions)
         assertTrue(log.isPerfectDay)
@@ -99,9 +101,8 @@ class CompleteMissionUseCaseTest {
 
         assertFalse(first.perfectDay)
         assertTrue(second.perfectDay)
-        assertTrue(second.hasCelebration)
         assertEquals(2, second.completedToday)
-        assertEquals(0, second.remainingToday)
+        assertEquals(second.totalToday, second.completedToday)
         assertEquals(PetMood.CELEBRANDO, pet.getPet().mood)
     }
 
@@ -130,7 +131,6 @@ class CompleteMissionUseCaseTest {
         assertEquals(1, result.previousLevel)
         assertEquals(2, result.newLevel)
         assertTrue(result.leveledUp)
-        assertTrue(result.hasCelebration)
         assertEquals(115, progress.getProfile().totalXp)
         assertEquals(2, progress.getProfile().level)
     }
@@ -181,5 +181,17 @@ class CompleteMissionUseCaseTest {
         assertEquals(before.happiness + 4, after.happiness)
         assertEquals(today, after.lastInteractionEpochDay)
         assertTrue(after.happiness <= 100)
+    }
+
+    @Test
+    fun `the perfect day achievement unlocks on the completion that closes the day`() = runTest {
+        seedTwoMissions()
+
+        useCase("a:$today")
+        val last = useCase("b:$today")!!
+
+        // Today's log is saved before achievements are evaluated, so the
+        // reward arrives now and not on some later, unrelated action.
+        assertTrue("completista" in last.newAchievements.map { it.id })
     }
 }

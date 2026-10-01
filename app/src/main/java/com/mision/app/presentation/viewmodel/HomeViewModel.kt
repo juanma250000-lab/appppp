@@ -16,74 +16,64 @@ import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
 import com.mision.app.domain.usecase.UseCases
 import com.mision.app.presentation.celebrations.CelebrationUi
-import com.mision.app.presentation.celebrations.CelebrationDispatcher
 import com.mision.app.presentation.celebrations.toCelebrationUi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Everything the home screen renders, assembled from a single combine. */
+/** Everything the home screen renders. */
 data class HomeUiState(
     val isLoading: Boolean = true,
     val profile: UserProfile = UserProfile.empty(),
     val streak: StreakState = StreakState.empty(),
-    val pet: Pet = Pet.default(name = "Nube", epochDay = 0),
+    val pet: Pet = Pet.default(epochDay = 0),
     val missions: List<Mission> = emptyList(),
-    val completedToday: Int = 0,
-    val totalToday: Int = 0,
-    val progress: Float = 0f,
-    val speech: String = "",
     val greeting: String = "",
     val dateLabel: String = "",
     val motivationalLine: String = "",
-    val celebration: CelebrationUi? = null,
-    val isBusy: Boolean = false,
 ) {
-    val allCompleted: Boolean get() = totalToday > 0 && completedToday >= totalToday
+    val completedToday: Int get() = missions.count { it.isCompleted }
+    val totalToday: Int get() = missions.size
+    val progress: Float get() = if (totalToday == 0) 0f else completedToday.toFloat() / totalToday
+    val allCompleted: Boolean get() = totalToday > 0 && completedToday == totalToday
+    val speech: String get() = PetSpeechProvider.forDailyProgress(progress)
 }
 
 /**
  * Home screen logic: today's missions, progression, streak, pet speech and
  * the completion orchestration.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
     private val useCases: UseCases,
-    private val progressRepository: ProgressRepository,
-    private val gamificationRepository: GamificationRepository,
-    private val petRepository: PetRepository,
+    progressRepository: ProgressRepository,
+    gamificationRepository: GamificationRepository,
+    petRepository: PetRepository,
     private val clock: ClockProvider,
-    private val celebrationDispatcher: CelebrationDispatcher,
 ) : ViewModel() {
 
-    private val epochDay: Int = clock.todayEpochDay()
+    /** The day on screen; moves forward on resume after midnight. */
+    private val day = MutableStateFlow(clock.todayEpochDay())
 
     private val _celebration = MutableStateFlow<CelebrationUi?>(null)
     val celebration: StateFlow<CelebrationUi?> = _celebration.asStateFlow()
 
-    private val _isBusy = MutableStateFlow(false)
-    val isBusy: StateFlow<Boolean> = _isBusy.asStateFlow()
+    val messages = UserMessages()
+
+    private var busy = false
 
     val uiState: StateFlow<HomeUiState> = combine(
-        useCases.getDailyMissions(epochDay),
+        day.flatMapLatest { useCases.getDailyMissions(it) },
         progressRepository.observeProfile(),
         gamificationRepository.observeStreak(),
         petRepository.observePet(),
-        _celebration,
-    ) { missions, profile, streak, pet, celebration ->
-        val completed = missions.count { it.isCompleted }
-        val total = missions.size
-        val ratio = if (total <= 0) 0f else completed.toFloat() / total
-        val speechState = PetSpeechProvider.stateForProgress(ratio)
-        val message = PetSpeechProvider.message(
-            state = speechState,
-            progressPercent = if (total <= 0) 0 else (ratio * 100).toInt(),
-            petName = pet.name,
-            streakDays = streak.currentStreak,
-        )
+    ) { missions, profile, streak, pet ->
         val now = clock.now()
         HomeUiState(
             isLoading = false,
@@ -91,14 +81,9 @@ class HomeViewModel(
             streak = streak,
             pet = pet,
             missions = missions,
-            completedToday = completed,
-            totalToday = total,
-            progress = ratio,
-            speech = celebration?.let { "${it.emoji} ${it.title}" } ?: message.text,
             greeting = DateFormats.greeting(now.hour),
             dateLabel = DateFormats.longDate(now.toLocalDate()),
-            motivationalLine = PetSpeechProvider.motivationalLine(epochDay),
-            celebration = celebration,
+            motivationalLine = PetSpeechProvider.motivationalLine(day.value),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -106,48 +91,38 @@ class HomeViewModel(
         initialValue = HomeUiState(),
     )
 
-    init {
+    /** Re-syncs the day (missions, streak, pet mood) when the screen resumes. */
+    fun refresh() {
         viewModelScope.launch {
             runCatching {
                 useCases.ensureDailyMissions()
+                day.value = clock.todayEpochDay()
                 useCases.calculateStreak()
                 useCases.updatePetMood()
-            }
+            }.onFailure { messages.show(GENERIC_ERROR) }
         }
     }
 
     /** Completes or reverts a mission and raises the proper celebration. */
     fun onToggleMission(mission: Mission) {
-        if (_isBusy.value) return
+        if (busy) return
+        busy = true
         viewModelScope.launch {
-            _isBusy.value = true
-            try {
+            runCatching {
                 if (mission.isCompleted) {
                     useCases.uncompleteMission(mission.id)
                 } else {
-                    val result = useCases.completeMission(mission.id) ?: return@launch
-                    celebrationDispatcher.dispatch(result)
-                    _celebration.value = result.toCelebrationUi()
+                    useCases.completeMission(mission.id)?.let { result ->
+                        _celebration.value = result.toCelebrationUi()
+                    }
                 }
-            } finally {
-                _isBusy.value = false
-            }
+            }.onFailure { messages.show(GENERIC_ERROR) }
+            busy = false
         }
     }
 
     fun dismissCelebration() {
         _celebration.value = null
-    }
-
-    /** Re-syncs the day when the app returns to the foreground. */
-    fun refresh() {
-        viewModelScope.launch {
-            runCatching {
-                useCases.ensureDailyMissions()
-                useCases.calculateStreak()
-                useCases.updatePetMood()
-            }
-        }
     }
 
     companion object {
@@ -157,7 +132,6 @@ class HomeViewModel(
             gamificationRepository: GamificationRepository,
             petRepository: PetRepository,
             clock: ClockProvider,
-            celebrationDispatcher: CelebrationDispatcher,
         ) = viewModelFactory {
             initializer {
                 HomeViewModel(
@@ -166,7 +140,6 @@ class HomeViewModel(
                     gamificationRepository = gamificationRepository,
                     petRepository = petRepository,
                     clock = clock,
-                    celebrationDispatcher = celebrationDispatcher,
                 )
             }
         }

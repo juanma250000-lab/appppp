@@ -18,6 +18,8 @@ data class UserProfile(
     val levelProgress: LevelProgress get() = LevelCalculator.progressFor(totalXp)
 
     companion object {
+        const val DEFAULT_NAME = "Amigo"
+
         fun empty(name: String = "", createdAtEpochDay: Int = 0) = UserProfile(
             name = name,
             totalXp = 0,
@@ -52,8 +54,10 @@ data class ProfileStats(
     val unlockedAchievements: Int,
     val totalAchievements: Int,
     val weekStats: List<DayStat>,
+    /** Missions completed during the current calendar month. */
     val monthCompleted: Int,
-    val monthGoalDays: Int,
+    /** Days on which every planned mission was completed. */
+    val perfectDays: Int,
 )
 
 /** One day of the weekly chart. */

@@ -22,8 +22,12 @@ class ReminderWorker(
 
         if (settings.notificationsEnabled) {
             val pending = runCatching {
-                container.missionRepository.pendingCountToday(container.clock.todayEpochDay())
-            }.getOrDefault(0)
+                // If the app was not opened today the day's missions do not
+                // exist yet; without this every reminder would read "all done".
+                val today = container.clock.todayEpochDay()
+                container.missionRepository.ensureDailyMissions(today)
+                container.missionRepository.pendingCountToday(today)
+            }.getOrNull()
 
             container.notifier.showDailyReminder(
                 pendingMissions = pending,

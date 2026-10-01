@@ -18,7 +18,7 @@ interface ProgressRepository {
     suspend fun getProfile(): UserProfile
     suspend fun saveProfile(profile: UserProfile)
 
-    fun observeDailyLogs(): Flow<List<DailyLog>>
+    suspend fun getDailyLogs(): List<DailyLog>
     suspend fun getDailyLog(epochDay: Int): DailyLog?
     suspend fun saveDailyLog(log: DailyLog)
 
@@ -76,8 +76,6 @@ interface SettingsRepository {
     suspend fun setDynamicColor(value: Boolean)
     suspend fun setNotificationsEnabled(value: Boolean)
     suspend fun setReminderTime(hour: Int, minute: Int)
-    suspend fun setSoundEnabled(value: Boolean)
     suspend fun setAnimationsEnabled(value: Boolean)
     suspend fun setPreferredCategories(categories: Set<MissionCategory>)
-    suspend fun markNotificationPermissionRequested()
 }

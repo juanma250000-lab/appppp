@@ -2,39 +2,59 @@ package com.mision.app.presentation.screen.pet
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mision.app.core.gamification.ShopCatalog
+import com.mision.app.domain.usecase.PetAction
 import com.mision.app.presentation.LocalAppContainer
 import com.mision.app.presentation.components.AnimatedPet
-import com.mision.app.presentation.components.ConfirmDialog
-import com.mision.app.presentation.components.GlassButton
-import com.mision.app.presentation.components.GlassButtonStyle
-import com.mision.app.presentation.components.GlassCard
+import com.mision.app.presentation.components.HeroSurface
+import com.mision.app.presentation.components.InfoChip
 import com.mision.app.presentation.components.LabeledStatBar
+import com.mision.app.presentation.components.MisionButton
+import com.mision.app.presentation.components.MisionButtonStyle
+import com.mision.app.presentation.components.MisionCard
 import com.mision.app.presentation.components.MisionScreen
+import com.mision.app.presentation.components.brandTonalButtonColors
+import com.mision.app.presentation.components.OnResumeEffect
 import com.mision.app.presentation.components.PetSpeechBubble
 import com.mision.app.presentation.components.SectionHeader
-import com.mision.app.presentation.components.TintedGlassSurface
+import com.mision.app.presentation.components.SnackbarMessageEffect
 import com.mision.app.presentation.components.XpIndicator
-import com.mision.app.presentation.theme.AppGradients
+import com.mision.app.presentation.components.icon
 import com.mision.app.presentation.theme.Dimens
 import com.mision.app.presentation.viewmodel.PetViewModel
-import com.mision.app.domain.usecase.PetAction
 
 /**
- * Mascota: the pet stage, its mood and stats, the daily interactions and the
+ * Mascota: the pet stage, its mood and stats, the daily care actions and the
  * cosmetics it is wearing.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PetScreen(onOpenShop: () -> Unit) {
     val container = LocalAppContainer.current
@@ -46,149 +66,138 @@ fun PetScreen(onOpenShop: () -> Unit) {
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val message by viewModel.messages.current.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val pet = state.pet
 
-    state.infoMessage?.let { message ->
-        ConfirmDialog(
-            title = state.pet.name,
-            message = message,
-            confirmLabel = "Vale",
-            onConfirm = viewModel::dismissInfo,
-            onDismiss = viewModel::dismissInfo,
-            dismissLabel = "Cerrar",
-        )
-    }
+    OnResumeEffect(viewModel::refreshMood)
+    SnackbarMessageEffect(message, snackbar, viewModel.messages::consumed)
 
     MisionScreen(
-        title = state.pet.name,
-        subtitle = state.pet.mood.displayName,
+        title = pet.name,
+        subtitle = "Estado de ánimo: ${pet.mood.displayName.lowercase()}",
+        snackbarHostState = snackbar,
     ) {
-        TintedGlassSurface(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
-            ) {
-                AnimatedPet(pet = state.pet, size = 210.dp)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(text = state.pet.mood.emoji, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = state.pet.mood.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                PetSpeechBubble(
-                    text = state.speech,
-                    petName = state.pet.name,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        HeroSurface(modifier = Modifier.fillMaxWidth()) {
+            AnimatedPet(pet = pet, size = Dimens.PetStage)
+            PetSpeechBubble(text = state.speech, petName = pet.name)
         }
 
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)) {
-                SectionHeader(title = "Estado")
+        MisionCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(title = "Estado")
+            Column(
+                modifier = Modifier.padding(top = Dimens.SpaceMd),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+            ) {
                 LabeledStatBar(
-                    emoji = "💛",
+                    icon = Icons.Filled.Favorite,
                     label = "Felicidad",
-                    value = state.pet.happiness,
-                    colors = AppGradients.primary,
+                    value = pet.happiness,
+                    color = MaterialTheme.colorScheme.tertiary,
                 )
                 LabeledStatBar(
-                    emoji = "⚡",
+                    icon = Icons.Filled.Bolt,
                     label = "Energía",
-                    value = state.pet.energy,
-                    colors = listOf(
-                        androidx.compose.ui.graphics.Color(0xFF9BE15D),
-                        androidx.compose.ui.graphics.Color(0xFF4CC9F0),
-                    ),
+                    value = pet.energy,
+                    color = MaterialTheme.colorScheme.secondary,
                 )
                 XpIndicator(
-                    level = state.pet.level,
-                    progress = state.pet.levelProgress.progress,
-                    xpIntoLevel = state.pet.levelProgress.xpIntoLevel,
-                    xpToNext = state.pet.levelProgress.xpToNext,
+                    level = pet.level,
+                    progress = pet.levelProgress.progress,
+                    xpIntoLevel = pet.levelProgress.xpIntoLevel,
+                    xpToNext = pet.levelProgress.xpToNext,
                 )
             }
         }
 
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                SectionHeader(title = "Cuidalo")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-                ) {
-                    GlassButton(
-                        text = PetAction.ALIMENTAR.displayName,
-                        onClick = { viewModel.interact(PetAction.ALIMENTAR) },
-                        style = GlassButtonStyle.TONAL,
+        MisionCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(title = "Cuídalo")
+            Text(
+                text = "Alimentar recupera energía, jugar sube la felicidad y descansar recarga pilas.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Dimens.SpaceMd),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+            ) {
+                PetAction.entries.forEach { action ->
+                    PetActionButton(
+                        action = action,
+                        enabled = !busy,
+                        onClick = { viewModel.interact(action) },
                         modifier = Modifier.weight(1f),
-                        height = Dimens.ButtonHeightCompact,
-                    )
-                    GlassButton(
-                        text = PetAction.JUGAR.displayName,
-                        onClick = { viewModel.interact(PetAction.JUGAR) },
-                        modifier = Modifier.weight(1f),
-                        height = Dimens.ButtonHeightCompact,
-                    )
-                    GlassButton(
-                        text = PetAction.DESCANSAR.displayName,
-                        onClick = { viewModel.interact(PetAction.DESCANSAR) },
-                        style = GlassButtonStyle.TONAL,
-                        modifier = Modifier.weight(1f),
-                        height = Dimens.ButtonHeightCompact,
                     )
                 }
+            }
+        }
+
+        MisionCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(title = "Aspecto")
+            if (state.wearing.isEmpty()) {
                 Text(
-                    text = "Alimentar recupera energía, jugar sube la felicidad y descansar recarga pilas.",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${pet.name} todavía no lleva nada especial. Consigue sombreros, colores y efectos en la tienda.",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-        }
-
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                SectionHeader(title = "Aspecto")
-                val equipped = equippedDescriptions(state.pet.equipped)
-                if (equipped.isEmpty()) {
-                    Text(
-                        text = "${state.pet.name} no lleva nada especial todavía.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    equipped.forEach { description ->
-                        Text(
-                            text = "• $description",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+            } else {
+                FlowRow(
+                    modifier = Modifier.padding(top = Dimens.SpaceSm),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+                ) {
+                    state.wearing.forEach { item ->
+                        InfoChip(text = item.name, icon = item.category.icon)
                     }
                 }
-                GlassButton(
-                    text = "Ir a la tienda",
-                    onClick = onOpenShop,
-                    style = GlassButtonStyle.TONAL,
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
+            MisionButton(
+                text = "Ir a la tienda",
+                onClick = onOpenShop,
+                style = MisionButtonStyle.OUTLINE,
+                leadingIcon = Icons.Filled.Storefront,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Dimens.SpaceMd),
+            )
         }
     }
 }
 
-private fun equippedDescriptions(
-    equipped: com.mision.app.domain.model.EquippedCosmetics,
-): List<String> = buildList {
-    equipped.hat?.let { ShopCatalog.byId(it) }?.let { add("Sombrero: ${it.name}") }
-    equipped.accessory?.let { ShopCatalog.byId(it) }?.let { add("Accesorio: ${it.name}") }
-    equipped.color?.let { ShopCatalog.byId(it) }?.let { add("Color: ${it.name}") }
-    equipped.background?.let { ShopCatalog.byId(it) }?.let { add("Fondo: ${it.name}") }
-    equipped.effect?.let { ShopCatalog.byId(it) }?.let { add("Efecto: ${it.name}") }
-    equipped.emote?.let { ShopCatalog.byId(it) }?.let { add("Emote: ${it.name}") }
-    equipped.skin?.let { ShopCatalog.byId(it) }?.let { add("Piel: ${it.name}") }
+/** Care action: icon over label, so the three fit side by side on any phone. */
+@Composable
+private fun PetActionButton(
+    action: PetAction,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = Dimens.PetActionHeight),
+        shape = MaterialTheme.shapes.medium,
+        colors = brandTonalButtonColors(),
+        contentPadding = PaddingValues(Dimens.SpaceXs),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(action.icon, contentDescription = null, modifier = Modifier.size(Dimens.IconLg))
+            Text(
+                text = action.displayName,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 }
+
+private val PetAction.icon
+    get() = when (this) {
+        PetAction.ALIMENTAR -> Icons.Filled.Restaurant
+        PetAction.JUGAR -> Icons.Filled.SportsEsports
+        PetAction.DESCANSAR -> Icons.Filled.Bedtime
+    }

@@ -1,13 +1,13 @@
 package com.mision.app.domain.model
 
 /** Broad areas a mission can belong to. */
-enum class MissionCategory(val displayName: String, val emoji: String) {
-    SALUD("Salud", "💧"),
-    ESTUDIO("Estudio", "📚"),
-    PRODUCTIVIDAD("Productividad", "⚡"),
-    BIENESTAR("Bienestar", "🧘"),
-    ACTIVIDAD_FISICA("Actividad física", "🏃"),
-    PERSONAL("Personal", "✨"),
+enum class MissionCategory(val displayName: String) {
+    SALUD("Salud"),
+    ESTUDIO("Estudio"),
+    PRODUCTIVIDAD("Productividad"),
+    BIENESTAR("Bienestar"),
+    ACTIVIDAD_FISICA("Actividad física"),
+    PERSONAL("Personal"),
 }
 
 /**
@@ -52,9 +52,6 @@ data class Mission(
     val createdAtEpochDay: Int,
     val isRecurring: Boolean,
     val isCustom: Boolean,
-    val reminderEnabled: Boolean,
-    val reminderHour: Int,
-    val reminderMinute: Int,
     val durationMinutes: Int?,
     val sortOrder: Int,
 ) {
@@ -64,11 +61,6 @@ data class Mission(
     /** A mission can only be undone while its day is still today. */
     fun canBeUncompleted(todayEpochDay: Int): Boolean =
         isCompleted && dueEpochDay == todayEpochDay
-
-    companion object {
-        const val NO_DURATION = -1
-        const val NO_REMINDER_HOUR = -1
-    }
 }
 
 /** UI filtering state, kept as an immutable value. */

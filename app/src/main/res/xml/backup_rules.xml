@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup (Android 11 and lower). Progress lives in Room and preferences in
+  DataStore (files/datastore); both must travel together, otherwise a restore
+  would bring the progress back but replay the onboarding over it.
+-->
 <full-backup-content>
     <include domain="database" path="." />
-    <include domain="sharedpref" path="." />
+    <include domain="file" path="datastore/" />
 </full-backup-content>

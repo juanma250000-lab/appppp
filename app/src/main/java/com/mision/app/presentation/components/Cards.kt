@@ -1,48 +1,34 @@
 package com.mision.app.presentation.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import com.mision.app.domain.model.Achievement
-import com.mision.app.domain.model.AchievementIcon
 import com.mision.app.domain.model.StreakState
-import com.mision.app.presentation.theme.AppGradients
+import com.mision.app.domain.usecase.AchievementProgress
 import com.mision.app.presentation.theme.Dimens
-import com.mision.app.presentation.theme.StreakFlame
+import com.mision.app.presentation.theme.MisionColors
 
-/** Row title with an optional action on the right. */
+/** Section title with an optional text action on the right. */
 @Composable
 fun SectionHeader(
     title: String,
@@ -57,133 +43,131 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { heading() },
         )
         if (actionLabel != null && onAction != null) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(Dimens.RadiusXs))
-                    .clickable(role = Role.Button, onClick = onAction)
-                    .padding(horizontal = Dimens.SpaceSm, vertical = Dimens.SpaceXs),
-            )
+            TextButton(onClick = onAction) { Text(actionLabel) }
         }
     }
 }
 
-/** Friendly empty placeholder with an action to recover from it. */
+/** Empty / error placeholder: icon, explanation and a way out. */
 @Composable
 fun EmptyState(
-    emoji: String,
+    icon: ImageVector,
     title: String,
     message: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
+    actionIcon: ImageVector? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    GlassCard(modifier = modifier.fillMaxWidth()) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(text = emoji, style = MaterialTheme.typography.displayMedium)
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+    ) {
+        IconBadge(
+            icon = icon,
+            size = Dimens.IconContainerLg,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        if (actionLabel != null && onAction != null) {
+            MisionButton(
+                text = actionLabel,
+                onClick = onAction,
+                style = MisionButtonStyle.TONAL,
+                leadingIcon = actionIcon,
+                height = Dimens.ButtonHeightCompact,
             )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (actionLabel != null && onAction != null) {
-                GlassButton(
-                    text = actionLabel,
-                    onClick = onAction,
-                    style = GlassButtonStyle.TONAL,
-                    height = Dimens.ButtonHeightCompact,
-                )
-            }
         }
     }
 }
 
-/** Compact metric tile (misiones, días, nivel...). */
+/** Compact metric tile (misiones, monedas, logros...). */
 @Composable
 fun StatTile(
-    emoji: String,
+    icon: ImageVector,
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    gradient: List<Color> = AppGradients.primary,
+    iconContainer: Color = MaterialTheme.colorScheme.primaryContainer,
+    iconColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
 ) {
-    GlassCard(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)) {
-            Box(
-                modifier = Modifier
-                    .size(Dimens.IconXl)
-                    .clip(RoundedCornerShape(Dimens.RadiusSm))
-                    .background(Brush.linearGradient(gradient)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = emoji, style = MaterialTheme.typography.titleMedium)
-            }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+    MisionCard(
+        modifier = modifier.semantics(mergeDescendants = true) {},
+        contentPadding = PaddingValues(Dimens.SpaceMd),
+    ) {
+        IconBadge(
+            icon = icon,
+            containerColor = iconContainer,
+            contentColor = iconColor,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
-/** Hero card for the streak, with the flame accent and the longest record. */
+/** Streak summary: the flame, the current chain and the record. */
 @Composable
 fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
-    GlassCard(modifier = modifier.fillMaxWidth()) {
+    val game = MisionColors.game
+    MisionCard(modifier = modifier.fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+            modifier = Modifier.semantics(mergeDescendants = true) {},
         ) {
-            Box(
-                modifier = Modifier
-                    .size(Dimens.IconXxl)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(AppGradients.streak)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "🔥", style = MaterialTheme.typography.titleLarge)
-            }
+            IconBadge(
+                icon = Icons.Filled.LocalFireDepartment,
+                size = Dimens.IconContainerLg,
+                containerColor = game.streakContainer,
+                contentColor = game.streak,
+            )
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)) {
                 Text(
-                    text = if (streak.isActive || streak.currentStreak > 0) {
-                        "${streak.currentStreak} días seguidos"
-                    } else {
-                        "Empieza una racha hoy"
+                    text = when (streak.currentStreak) {
+                        0 -> "Empieza una racha hoy"
+                        1 -> "1 día seguido"
+                        else -> "${streak.currentStreak} días seguidos"
                     },
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = when {
-                        streak.currentStreak <= 0 ->
-                            "Completa al menos una misión cada día para mantenerla."
-                        else -> "Récord: ${streak.longestStreak} días · Total: ${streak.totalActiveDays} días"
+                    text = if (streak.currentStreak <= 0) {
+                        "Completa al menos una misión cada día para mantenerla."
+                    } else {
+                        "Récord: ${streak.longestStreak} · Días activos: ${streak.totalActiveDays}"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -193,88 +177,56 @@ fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
     }
 }
 
-/** Maps the catalogue icon to a Material icon. */
-fun AchievementIcon.toImageVector(): ImageVector = when (this) {
-    AchievementIcon.TROPHY -> Icons.Filled.EmojiEvents
-    AchievementIcon.FLAME -> Icons.Filled.LocalFireDepartment
-    AchievementIcon.STAR -> Icons.Filled.Star
-    AchievementIcon.CHECK -> Icons.Filled.CheckCircle
-    AchievementIcon.BOOK -> Icons.AutoMirrored.Filled.MenuBook
-    AchievementIcon.HEART -> Icons.Filled.Favorite
-    AchievementIcon.BOLT -> Icons.Filled.Bolt
-    AchievementIcon.MEDAL -> Icons.Filled.WorkspacePremium
-    AchievementIcon.CROWN -> Icons.Filled.EmojiEvents
-    AchievementIcon.SPARKLE -> Icons.Filled.AutoAwesome
-}
-
-/** Achievement card: unlocked ones glow, locked ones show their progress. */
+/** Achievement row: unlocked ones show their reward, locked ones their progress. */
 @Composable
-fun AchievementCard(
-    achievement: Achievement,
-    currentValue: Int,
-    target: Int,
-    modifier: Modifier = Modifier,
-) {
-    GlassCard(modifier = modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(Dimens.TouchTargetMin)
-                    .clip(RoundedCornerShape(Dimens.RadiusSm))
-                    .background(
-                        if (achievement.isUnlocked) {
-                            Brush.linearGradient(AppGradients.celebrate)
-                        } else {
-                            Brush.linearGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                ),
-                            )
-                        },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = achievement.definition.icon.toImageVector(),
-                    contentDescription = null,
-                    tint = if (achievement.isUnlocked) Color(0xFF2A2440)
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(Dimens.IconLg),
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .padding(start = Dimens.SpaceMd)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
-            ) {
-                Text(
-                    text = achievement.definition.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = achievement.definition.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (achievement.isUnlocked) {
-                    Text(
-                        text = "Desbloqueado · +${achievement.definition.rewardXp} XP",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = StreakFlame,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                } else {
-                    GradientProgressBar(
-                        progress = if (target <= 0) 0f else currentValue.toFloat() / target,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Progreso de ${achievement.definition.name}",
-                    )
+fun AchievementCard(item: AchievementProgress, modifier: Modifier = Modifier) {
+    val definition = item.achievement.definition
+    val unlocked = item.achievement.isUnlocked
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append(definition.name)
+                    append(if (unlocked) ", desbloqueado" else ", bloqueado")
                 }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
+    ) {
+        IconBadge(
+            icon = if (unlocked) definition.icon.icon else Icons.Filled.Lock,
+            containerColor = if (unlocked) colors.primaryContainer else colors.surfaceContainerHigh,
+            contentColor = if (unlocked) colors.onPrimaryContainer else colors.onSurfaceVariant,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
+        ) {
+            Text(
+                text = definition.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.onSurface,
+            )
+            Text(
+                text = definition.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (unlocked) {
+                Text(
+                    text = "Desbloqueado · +${definition.rewardXp} XP",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.primary,
+                )
+            } else {
+                ProgressBar(
+                    progress = item.progress,
+                    label = "Progreso de ${definition.name}: ${(item.progress * 100).toInt()} %",
+                )
             }
         }
     }
@@ -284,48 +236,51 @@ fun AchievementCard(
 @Composable
 fun PetSpeechBubble(
     text: String,
+    petName: String,
     modifier: Modifier = Modifier,
-    petName: String? = null,
 ) {
-    GlassCard(modifier = modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.Top) {
-            Text(text = "💬", style = MaterialTheme.typography.titleMedium)
-            Column(modifier = Modifier.padding(start = Dimens.SpaceSm)) {
-                if (petName != null) {
-                    Text(
-                        text = petName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
+    MisionCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = PaddingValues(Dimens.SpaceMd),
+    ) {
+        Text(
+            text = petName,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
-/** Labeled stat bar (happiness, energy...). */
+/** Labeled 0..100 stat (happiness, energy...). */
 @Composable
 fun LabeledStatBar(
-    emoji: String,
+    icon: ImageVector,
     label: String,
     value: Int,
-    colors: List<Color>,
+    color: Color,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
         ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(Dimens.IconMd))
             Text(
-                text = "$emoji $label",
+                text = label,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
             )
             Text(
                 text = "$value %",
@@ -333,30 +288,6 @@ fun LabeledStatBar(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        GradientProgressBar(
-            progress = value / 100f,
-            colors = colors,
-            modifier = Modifier.fillMaxWidth(),
-            label = label,
-        )
-    }
-}
-
-/** Tinted round icon container reused by list rows. */
-@Composable
-fun IconBadge(
-    emoji: String,
-    modifier: Modifier = Modifier,
-    size: Dp = Dimens.TouchTargetMin,
-    gradient: List<Color> = AppGradients.primary,
-) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(Brush.linearGradient(gradient)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = emoji, style = MaterialTheme.typography.titleMedium)
+        ProgressBar(progress = value / 100f, color = color, label = "$label: $value %")
     }
 }

@@ -1,50 +1,66 @@
 package com.mision.app.presentation.screen.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mision.app.core.time.DateFormats
 import com.mision.app.domain.model.DayStat
+import com.mision.app.domain.model.ProfileStats
 import com.mision.app.presentation.LocalAppContainer
 import com.mision.app.presentation.components.AchievementCard
-import com.mision.app.presentation.components.ConfirmDialog
-import com.mision.app.presentation.components.GlassButton
-import com.mision.app.presentation.components.GlassButtonStyle
-import com.mision.app.presentation.components.GlassCard
-import com.mision.app.presentation.components.GlassIconButton
-import com.mision.app.presentation.components.GradientProgressBar
+import com.mision.app.presentation.components.IconBadge
+import com.mision.app.presentation.components.MisionButton
+import com.mision.app.presentation.components.MisionButtonStyle
+import com.mision.app.presentation.components.MisionCard
+import com.mision.app.presentation.components.MisionIconButton
+import com.mision.app.presentation.components.MisionIcons
 import com.mision.app.presentation.components.MisionScreen
+import com.mision.app.presentation.components.OnResumeEffect
 import com.mision.app.presentation.components.SectionHeader
+import com.mision.app.presentation.components.SnackbarMessageEffect
 import com.mision.app.presentation.components.StatTile
 import com.mision.app.presentation.components.StreakCard
 import com.mision.app.presentation.components.XpIndicator
-import com.mision.app.presentation.theme.AppGradients
 import com.mision.app.presentation.theme.Dimens
+import com.mision.app.presentation.theme.MisionColors
+import com.mision.app.presentation.viewmodel.ProfileUiState
 import com.mision.app.presentation.viewmodel.ProfileViewModel
 import java.time.LocalDate
 
-/**
- * Perfil: identity, level, weekly/monthly statistics and the achievement
- * catalogue.
- */
+/** Perfil: identity, level, weekly/monthly statistics and achievements. */
 @Composable
 fun ProfileScreen(onOpenSettings: () -> Unit) {
     val container = LocalAppContainer.current
@@ -55,218 +71,239 @@ fun ProfileScreen(onOpenSettings: () -> Unit) {
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val message by viewModel.messages.current.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
 
-    state.infoMessage?.let { message ->
-        ConfirmDialog(
-            title = "Perfil",
-            message = message,
-            confirmLabel = "Entendido",
-            onConfirm = viewModel::dismissInfo,
-            onDismiss = viewModel::dismissInfo,
-            dismissLabel = "Cerrar",
-        )
-    }
+    OnResumeEffect(viewModel::refresh)
+    SnackbarMessageEffect(message, snackbar, viewModel.messages::consumed)
 
     MisionScreen(
         title = "Perfil",
-        subtitle = state.stats?.let { "Nivel ${it.profile.level} · ${it.profile.name}" },
+        subtitle = "Nivel ${state.profile.level} · ${state.profile.name}",
+        snackbarHostState = snackbar,
         actions = {
-            GlassIconButton(
-                imageVector = Icons.Filled.Edit,
-                contentDescription = "Editar nombre",
-                onClick = viewModel::startEditName,
-            )
-            GlassIconButton(
-                imageVector = Icons.Filled.Settings,
+            MisionIconButton(
+                icon = Icons.Filled.Settings,
                 contentDescription = "Abrir ajustes",
                 onClick = onOpenSettings,
             )
         },
     ) {
-        // ---- Identity ----------------------------------------------------
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                if (state.isEditingName) {
-                    OutlinedTextField(
-                        value = state.nameDraft.orEmpty(),
-                        onValueChange = viewModel::onNameDraft,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Tu nombre") },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences,
-                            imeAction = ImeAction.Done,
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                            focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
-                        ),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-                        GlassButton(
-                            text = "Guardar",
-                            onClick = viewModel::saveName,
-                            modifier = Modifier.weight(1f),
-                            height = Dimens.ButtonHeightCompact,
-                        )
-                        GlassButton(
-                            text = "Cancelar",
-                            onClick = viewModel::cancelEditName,
-                            style = GlassButtonStyle.TONAL,
-                            modifier = Modifier.weight(1f),
-                            height = Dimens.ButtonHeightCompact,
-                        )
-                    }
-                } else {
-                    Text(
-                        text = state.profile.name.ifBlank { "Viajero" },
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    XpIndicator(
-                        level = state.profile.level,
-                        progress = state.profile.levelProgress.progress,
-                        xpIntoLevel = state.profile.levelProgress.xpIntoLevel,
-                        xpToNext = state.profile.levelProgress.xpToNext,
-                    )
-                }
-            }
-        }
+        IdentityCard(
+            state = state,
+            onEdit = viewModel::startEditName,
+            onDraft = viewModel::onNameDraft,
+            onSave = viewModel::saveName,
+            onCancel = viewModel::cancelEditName,
+        )
 
-        // ---- Stats --------------------------------------------------------
-        val stats = state.stats
-        if (stats != null) {
+        state.stats?.let { stats ->
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
                 StatTile(
-                    emoji = "✅",
+                    icon = Icons.Filled.CheckCircle,
                     label = "Misiones",
                     value = stats.profile.totalMissionsCompleted.toString(),
-                    gradient = AppGradients.primary,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
-                    emoji = "🪙",
+                    icon = MisionIcons.Coin,
                     label = "Monedas",
                     value = stats.profile.coins.toString(),
-                    gradient = AppGradients.coin,
+                    iconContainer = MisionColors.game.coin,
+                    iconColor = MisionColors.game.onCoin,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
-                    emoji = "🏆",
+                    icon = Icons.Filled.EmojiEvents,
                     label = "Logros",
                     value = "${stats.unlockedAchievements}/${stats.totalAchievements}",
-                    gradient = AppGradients.celebrate,
+                    iconContainer = MaterialTheme.colorScheme.tertiaryContainer,
+                    iconColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.weight(1f),
                 )
             }
-
             StreakCard(streak = stats.streak)
-
-            GlassCard {
-                Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                    SectionHeader(title = "Esta semana")
-                    WeeklyChart(days = stats.weekStats)
-                    Text(
-                        text = "Misiones completadas este mes: ${stats.monthCompleted} de ${stats.monthGoalDays} días.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
-                    ) {
-                        StatTile(
-                            emoji = "📅",
-                            label = "Mes",
-                            value = stats.monthCompleted.toString(),
-                            gradient = AppGradients.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        StatTile(
-                            emoji = "🌟",
-                            label = "Días perfectos",
-                            value = stats.streak.totalActiveDays.toString(),
-                            gradient = AppGradients.celebrate,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
+            WeekCard(stats = stats)
         }
 
-        // ---- Achievements --------------------------------------------------
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                SectionHeader(title = "Logros")
-                Text(
-                    text = "Completa misiones, mantén tu racha y sube de nivel para desbloquearlos todos.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (state.achievements.isEmpty()) {
-                    Text(
-                        text = "Cargando logros…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    state.achievements.forEach { achievement ->
-                        AchievementCard(
-                            achievement = achievement,
-                            currentValue = viewModel.currentValueFor(achievement),
-                            target = achievement.definition.target,
-                        )
-                    }
-                }
+        MisionCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(title = "Logros")
+            Text(
+                text = "Completa misiones, mantén tu racha y sube de nivel para desbloquearlos todos.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            state.achievements.forEachIndexed { index, item ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                AchievementCard(item = item, modifier = Modifier.padding(vertical = Dimens.SpaceMd))
             }
         }
     }
 }
 
-/** Seven column chart with Spanish weekday initials. */
 @Composable
-private fun WeeklyChart(days: List<DayStat>) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
+private fun IdentityCard(
+    state: ProfileUiState,
+    onEdit: () -> Unit,
+    onDraft: (String) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    MisionCard(modifier = Modifier.fillMaxWidth()) {
+        val draft = state.nameDraft
+        if (draft != null) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = onDraft,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tu nombre") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { onSave() }),
+            )
+            Row(
+                modifier = Modifier.padding(top = Dimens.SpaceMd),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+            ) {
+                MisionButton(
+                    text = "Cancelar",
+                    onClick = onCancel,
+                    style = MisionButtonStyle.OUTLINE,
+                    height = Dimens.ButtonHeightCompact,
+                    modifier = Modifier.weight(1f),
+                )
+                MisionButton(
+                    text = "Guardar",
+                    onClick = onSave,
+                    height = Dimens.ButtonHeightCompact,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = state.profile.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                MisionIconButton(icon = Icons.Filled.Edit, contentDescription = "Editar nombre", onClick = onEdit)
+            }
+            XpIndicator(
+                level = state.profile.level,
+                progress = state.profile.levelProgress.progress,
+                xpIntoLevel = state.profile.levelProgress.xpIntoLevel,
+                xpToNext = state.profile.levelProgress.xpToNext,
+                modifier = Modifier.padding(top = Dimens.SpaceMd),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeekCard(stats: ProfileStats) {
+    MisionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Últimos 7 días")
+        WeeklyChart(days = stats.weekStats, modifier = Modifier.padding(vertical = Dimens.SpaceMd))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
-            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.padding(top = Dimens.SpaceMd),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
         ) {
-            days.forEach { day ->
-                val date = LocalDate.ofEpochDay(day.epochDay.toLong())
-                val ratio = if (day.total <= 0) 0f else day.completed.toFloat() / day.total
-                Column(
+            InlineMetric(
+                icon = Icons.Filled.CalendarMonth,
+                label = "Misiones este mes",
+                value = stats.monthCompleted.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            InlineMetric(
+                icon = Icons.Filled.WorkspacePremium,
+                label = "Días perfectos",
+                value = stats.perfectDays.toString(),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Icon + value + label without its own card (used inside a card). */
+@Composable
+private fun InlineMetric(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+    ) {
+        IconBadge(
+            icon = icon,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        Column {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Seven vertical bars (completed / planned) with Spanish weekday initials. */
+@Composable
+private fun WeeklyChart(days: List<DayStat>, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val success = MisionColors.game.success
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+    ) {
+        days.forEach { day ->
+            val date = LocalDate.ofEpochDay(day.epochDay.toLong())
+            val complete = day.total > 0 && day.completed >= day.total
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "${DateFormats.shortDate(date)}: ${day.completed} de ${day.total} misiones"
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
+            ) {
+                Text(
+                    text = day.completed.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                )
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
+                        .fillMaxWidth()
+                        .height(Dimens.WeeklyChartHeight)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(colors.surfaceContainerHighest),
+                    contentAlignment = Alignment.BottomCenter,
                 ) {
-                    Text(
-                        text = "${day.completed}/${day.total}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    GradientProgressBar(
-                        progress = ratio,
-                        colors = if (ratio >= 1f && day.total > 0) {
-                            AppGradients.celebrate
-                        } else {
-                            AppGradients.primary
-                        },
-                        height = 72.dp,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Misiones del ${DateFormats.shortDate(date)}",
-                    )
-                    Text(
-                        text = DateFormats.dayInitial(date),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(day.progress)
+                            .background(if (complete) success else colors.primary),
                     )
                 }
+                Text(
+                    text = DateFormats.dayInitial(date),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurface,
+                )
             }
         }
     }

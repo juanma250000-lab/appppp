@@ -1,7 +1,6 @@
 package com.mision.app.data.repository
 
 import com.mision.app.core.time.ClockProvider
-import com.mision.app.data.local.PetEntity
 import com.mision.app.data.local.ProgressDao
 import com.mision.app.data.toDomain
 import com.mision.app.data.toEntity
@@ -16,18 +15,19 @@ class PetRepositoryImpl(
 ) : PetRepository {
 
     override fun observePet(): Flow<Pet> =
-        dao.observePet().map { (it ?: defaultPet()).toDomain() }
+        dao.observePet().map { it?.toDomain() ?: defaultPet() }
 
-    override suspend fun getPet(): Pet = (dao.getPet() ?: defaultPet()).toDomain()
+    override suspend fun getPet(): Pet = dao.getPet()?.toDomain() ?: defaultPet()
 
     override suspend fun savePet(pet: Pet) {
-        dao.upsertPet(pet.toEntity())
+        val createdAt = dao.getPet()?.createdAtEpochDay ?: clock.todayEpochDay()
+        dao.upsertPet(pet.toEntity(createdAtEpochDay = createdAt))
     }
 
     override suspend fun resetPet(name: String) {
-        dao.upsertPet(Pet.default(name, clock.todayEpochDay()).toEntity())
+        val today = clock.todayEpochDay()
+        dao.upsertPet(Pet.default(name, today).toEntity(createdAtEpochDay = today))
     }
 
-    private fun defaultPet(): PetEntity =
-        Pet.default(name = "Nube", epochDay = clock.todayEpochDay()).toEntity()
+    private fun defaultPet(): Pet = Pet.default(epochDay = clock.todayEpochDay())
 }

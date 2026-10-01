@@ -69,7 +69,5 @@ data class AchievementStats(
 /** Achievement joined with its unlock state for the UI. */
 data class Achievement(
     val definition: AchievementDefinition,
-    val unlockedAtEpochSecond: Long?,
-) {
-    val isUnlocked: Boolean get() = unlockedAtEpochSecond != null
-}
+    val isUnlocked: Boolean,
+)

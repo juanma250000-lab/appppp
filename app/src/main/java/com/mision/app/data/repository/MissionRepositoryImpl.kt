@@ -50,16 +50,7 @@ class MissionRepositoryImpl(
             .filter { it.isActive }
             .filter { it.isRecurring || it.createdAtEpochDay == todayEpochDay }
             .filter { it.id !in existing }
-            .map { template ->
-                MissionInstanceEntity(
-                    id = instanceId(template.id, todayEpochDay),
-                    templateId = template.id,
-                    dueEpochDay = todayEpochDay,
-                    isCompleted = false,
-                    completedAtEpochSecond = 0L,
-                    createdAtEpochDay = todayEpochDay,
-                )
-            }
+            .map { template -> newInstance(template.id, todayEpochDay) }
         if (missing.isNotEmpty()) dao.insertInstances(missing)
 
         dao.pruneInstancesBefore(todayEpochDay - KEEP_DAYS)
@@ -86,21 +77,12 @@ class MissionRepositoryImpl(
             difficulty = draft.difficulty,
             sortOrder = CUSTOM_ORDER,
             durationMinutes = draft.durationMinutes ?: 0,
-            reminderHour = if (draft.reminderEnabled) draft.reminderHour else SeedData.REMINDER_OFF,
-            reminderMinute = draft.reminderMinute,
             isRecurring = draft.isRecurring,
             isCustom = true,
             createdAt = todayEpochDay,
         )
         dao.upsertTemplate(template)
-        val instance = MissionInstanceEntity(
-            id = instanceId(templateId, todayEpochDay),
-            templateId = templateId,
-            dueEpochDay = todayEpochDay,
-            isCompleted = false,
-            completedAtEpochSecond = 0L,
-            createdAtEpochDay = todayEpochDay,
-        )
+        val instance = newInstance(templateId, todayEpochDay)
         dao.insertInstance(instance)
         return template.toMission(instance)
     }
@@ -118,13 +100,9 @@ class MissionRepositoryImpl(
                 coinReward = draft.difficulty.coinReward,
                 isRecurring = draft.isRecurring,
                 durationMinutes = draft.durationMinutes ?: 0,
-                reminderEnabled = draft.reminderEnabled,
-                reminderHour = if (draft.reminderEnabled) draft.reminderHour else SeedData.REMINDER_OFF,
-                reminderMinute = draft.reminderMinute,
             ),
         )
-        val today = clock.todayEpochDay()
-        return getMission(instanceId(id, today))
+        return getMission(instanceId(id, clock.todayEpochDay()))
     }
 
     override suspend fun deleteCustomMission(id: String): Boolean {
@@ -135,11 +113,8 @@ class MissionRepositoryImpl(
         return true
     }
 
-    override suspend fun pendingCountToday(todayEpochDay: Int): Int {
-        val total = dao.countInstancesOnDay(todayEpochDay)
-        val done = dao.countCompletedOnDay(todayEpochDay)
-        return (total - done).coerceAtLeast(0)
-    }
+    override suspend fun pendingCountToday(todayEpochDay: Int): Int =
+        countForDay(todayEpochDay).first
 
     override suspend fun countForDay(epochDay: Int): Pair<Int, Int> {
         val total = dao.countInstancesOnDay(epochDay)
@@ -147,20 +122,18 @@ class MissionRepositoryImpl(
         return (total - done).coerceAtLeast(0) to total
     }
 
-    override suspend fun pruneOldInstances(beforeEpochDay: Int) {
-        dao.pruneInstancesBefore(beforeEpochDay)
-    }
+    private fun newInstance(templateId: String, epochDay: Int) = MissionInstanceEntity(
+        id = instanceId(templateId, epochDay),
+        templateId = templateId,
+        dueEpochDay = epochDay,
+        isCompleted = false,
+        completedAtEpochSecond = 0L,
+        createdAtEpochDay = epochDay,
+    )
 
     companion object {
         private const val KEEP_DAYS = 60
         private const val CUSTOM_ORDER = 900
-        private val starterIds = setOf(
-            "mision_agua",
-            "mision_estudiar",
-            "mision_caminar",
-            "mision_leer",
-            "mision_ordenar",
-        )
 
         fun instanceId(templateId: String, epochDay: Int): String = "$templateId:$epochDay"
     }

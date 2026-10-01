@@ -2,6 +2,7 @@ package com.mision.app.testing
 
 import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.core.time.ClockProvider
+import com.mision.app.domain.model.AppSettings
 import com.mision.app.domain.model.DailyLog
 import com.mision.app.domain.model.EquippedCosmetics
 import com.mision.app.domain.model.Mission
@@ -11,17 +12,19 @@ import com.mision.app.domain.model.Pet
 import com.mision.app.domain.model.PurchaseResult
 import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.model.StreakState
+import com.mision.app.domain.model.ThemeMode
 import com.mision.app.domain.model.UserProfile
 import com.mision.app.domain.repository.GamificationRepository
 import com.mision.app.domain.repository.MissionDraft
 import com.mision.app.domain.repository.MissionRepository
 import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
+import com.mision.app.domain.repository.SettingsRepository
 import com.mision.app.domain.repository.ShopRepository
+import com.mision.app.domain.repository.TransactionRunner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -66,12 +69,13 @@ fun testMission(
     isCompleted: Boolean = false,
     isCustom: Boolean = false,
     sortOrder: Int = 0,
+    category: MissionCategory = MissionCategory.SALUD,
 ): Mission = Mission(
     id = id,
     templateId = templateId,
     title = title,
     description = "",
-    category = MissionCategory.SALUD,
+    category = category,
     difficulty = MissionDifficulty.MEDIA,
     xpReward = xpReward,
     coinReward = coinReward,
@@ -81,9 +85,6 @@ fun testMission(
     createdAtEpochDay = dueEpochDay,
     isRecurring = true,
     isCustom = isCustom,
-    reminderEnabled = false,
-    reminderHour = 9,
-    reminderMinute = 0,
     durationMinutes = null,
     sortOrder = sortOrder,
 )
@@ -136,9 +137,6 @@ class FakeMissionRepository(initial: List<Mission> = emptyList()) : MissionRepos
             category = draft.category,
             difficulty = draft.difficulty,
             durationMinutes = draft.durationMinutes,
-            reminderEnabled = draft.reminderEnabled,
-            reminderHour = draft.reminderHour,
-            reminderMinute = draft.reminderMinute,
             isRecurring = draft.isRecurring,
         )
         missions += mission
@@ -174,10 +172,6 @@ class FakeMissionRepository(initial: List<Mission> = emptyList()) : MissionRepos
         val ofDay = missions.filter { it.dueEpochDay == epochDay }
         return ofDay.count { !it.isCompleted } to ofDay.size
     }
-
-    override suspend fun pruneOldInstances(beforeEpochDay: Int) {
-        missions.removeAll { it.dueEpochDay < beforeEpochDay }
-    }
 }
 
 class FakeProgressRepository(
@@ -195,8 +189,8 @@ class FakeProgressRepository(
         profileFlow.value = profile
     }
 
-    override fun observeDailyLogs(): Flow<List<DailyLog>> =
-        logsFlow.map { it.values.sortedBy(DailyLog::epochDay) }
+    override suspend fun getDailyLogs(): List<DailyLog> =
+        logsFlow.value.values.sortedBy(DailyLog::epochDay)
 
     override suspend fun getDailyLog(epochDay: Int): DailyLog? = logsFlow.value[epochDay]
 
@@ -299,5 +293,45 @@ class FakeShopRepository : ShopRepository {
         item.id in purchasesFlow.value -> PurchaseResult.AlreadyOwned
         currentCoins < item.cost -> PurchaseResult.NotEnoughCoins(item.cost - currentCoins)
         else -> PurchaseResult.Success(item, currentCoins - item.cost)
+    }
+}
+
+/** Runs the block inline: the fakes are in-memory and single threaded. */
+object DirectTransactionRunner : TransactionRunner {
+    override suspend fun <R> invoke(block: suspend () -> R): R = block()
+}
+
+class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRepository {
+
+    private val state = MutableStateFlow(initial)
+
+    override val settings: Flow<AppSettings> = state
+
+    override suspend fun setOnboardingCompleted(value: Boolean) {
+        state.value = state.value.copy(onboardingCompleted = value)
+    }
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        state.value = state.value.copy(themeMode = mode)
+    }
+
+    override suspend fun setDynamicColor(value: Boolean) {
+        state.value = state.value.copy(dynamicColor = value)
+    }
+
+    override suspend fun setNotificationsEnabled(value: Boolean) {
+        state.value = state.value.copy(notificationsEnabled = value)
+    }
+
+    override suspend fun setReminderTime(hour: Int, minute: Int) {
+        state.value = state.value.copy(reminderHour = hour, reminderMinute = minute)
+    }
+
+    override suspend fun setAnimationsEnabled(value: Boolean) {
+        state.value = state.value.copy(animationsEnabled = value)
+    }
+
+    override suspend fun setPreferredCategories(categories: Set<MissionCategory>) {
+        state.value = state.value.copy(preferredCategories = categories)
     }
 }

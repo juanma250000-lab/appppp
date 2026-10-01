@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mision.app.core.gamification.PetSpeechProvider
+import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.core.time.ClockProvider
+import com.mision.app.domain.model.CosmeticSlot
 import com.mision.app.domain.model.Pet
+import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.usecase.PetAction
 import com.mision.app.domain.usecase.UseCases
@@ -14,82 +17,60 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class PetUiState(
     val isLoading: Boolean = true,
-    val pet: Pet = Pet.default(name = "Nube", epochDay = 0),
+    val pet: Pet = Pet.default(epochDay = 0),
     val speech: String = "",
-    val infoMessage: String? = null,
-    val busy: Boolean = false,
+    /** What the pet is wearing, in shop order. */
+    val wearing: List<ShopItem> = emptyList(),
 )
 
 /** Mascota screen: mood, stats, actions and contextual speech. */
 class PetViewModel(
     private val useCases: UseCases,
-    private val petRepository: PetRepository,
+    petRepository: PetRepository,
     private val clock: ClockProvider,
 ) : ViewModel() {
 
-    private val _infoMessage = MutableStateFlow<String?>(null)
     private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
-    val infoMessage: StateFlow<String?> = _infoMessage.asStateFlow()
+    val messages = UserMessages()
 
-    private val epochDay: Int = clock.todayEpochDay()
-
-    val uiState: StateFlow<PetUiState> = combine(
-        petRepository.observePet(),
-        _infoMessage,
-        _busy,
-    ) { pet, message, busy ->
-        PetUiState(
-            isLoading = false,
-            pet = pet,
-            speech = defaultSpeech(pet),
-            infoMessage = message,
-            busy = busy,
+    val uiState: StateFlow<PetUiState> = petRepository.observePet()
+        .map { pet ->
+            PetUiState(
+                isLoading = false,
+                pet = pet,
+                speech = PetSpeechProvider.forPetState(pet, clock.todayEpochDay()),
+                wearing = CosmeticSlot.entries.mapNotNull { slot ->
+                    pet.equipped.idFor(slot)?.let(ShopCatalog::byId)
+                },
+            )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = PetUiState(),
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = PetUiState(),
-    )
 
-    init {
+    /** Inactivity is reflected every time the screen becomes visible. */
+    fun refreshMood() {
         viewModelScope.launch { runCatching { useCases.updatePetMood() } }
     }
 
     fun interact(action: PetAction) {
         if (_busy.value) return
+        _busy.value = true
         viewModelScope.launch {
-            _busy.value = true
-            try {
-                val result = useCases.interactWithPet(action, uiState.value.pet.name)
-                _infoMessage.value = result.message
-            } finally {
-                _busy.value = false
-            }
-        }
-    }
-
-    fun refreshMood() {
-        viewModelScope.launch { runCatching { useCases.updatePetMood() } }
-    }
-
-    fun dismissInfo() {
-        _infoMessage.value = null
-    }
-
-    private fun defaultSpeech(pet: Pet): String {
-        val inactiveDays = (epochDay - pet.lastInteractionEpochDay).coerceAtLeast(0)
-        return when {
-            inactiveDays >= 6 -> "Me he extrañado de ti. ¡Qué bueno verte!"
-            pet.energy <= 25 -> "Estoy un poco cansado. ¿Me dejas descansar?"
-            pet.happiness >= 75 -> "¡Estoy de enhorabuena! Tú eres el mejor."
-            else -> PetSpeechProvider.motivationalLine(pet.happiness + epochDay)
+            runCatching { useCases.interactWithPet(action) }
+                .onSuccess { messages.show(it.message) }
+                .onFailure { messages.show(GENERIC_ERROR) }
+            _busy.value = false
         }
     }
 

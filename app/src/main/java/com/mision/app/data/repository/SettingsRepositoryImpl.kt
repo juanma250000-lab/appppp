@@ -39,13 +39,8 @@ class SettingsRepositoryImpl(
         scheduler.schedule(hour, minute, current.notificationsEnabled)
     }
 
-    override suspend fun setSoundEnabled(value: Boolean) = store.setSoundEnabled(value)
-
     override suspend fun setAnimationsEnabled(value: Boolean) = store.setAnimationsEnabled(value)
 
     override suspend fun setPreferredCategories(categories: Set<MissionCategory>) =
         store.setPreferredCategories(categories)
-
-    override suspend fun markNotificationPermissionRequested() =
-        store.setNotificationPermissionRequested(true)
 }

@@ -6,52 +6,54 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mision.app.domain.model.AppSettings
+import com.mision.app.domain.model.Mission
 import com.mision.app.presentation.LocalAppContainer
 import com.mision.app.presentation.components.AnimatedPet
 import com.mision.app.presentation.components.CelebrationDialog
 import com.mision.app.presentation.components.CoinPill
 import com.mision.app.presentation.components.EmptyState
-import com.mision.app.presentation.components.GlassButton
-import com.mision.app.presentation.components.GlassButtonStyle
-import com.mision.app.presentation.components.GlassCard
-import com.mision.app.presentation.components.GlassIconButton
-import com.mision.app.presentation.components.GradientProgressBar
+import com.mision.app.presentation.components.HeroSurface
+import com.mision.app.presentation.components.MisionButton
+import com.mision.app.presentation.components.MisionButtonStyle
+import com.mision.app.presentation.components.MisionCard
+import com.mision.app.presentation.components.MisionIconButton
 import com.mision.app.presentation.components.MisionScreen
 import com.mision.app.presentation.components.MissionCard
+import com.mision.app.presentation.components.OnResumeEffect
 import com.mision.app.presentation.components.PetSpeechBubble
+import com.mision.app.presentation.components.ProgressBar
 import com.mision.app.presentation.components.SectionHeader
+import com.mision.app.presentation.components.SnackbarMessageEffect
 import com.mision.app.presentation.components.StreakCard
-import com.mision.app.presentation.components.TintedGlassSurface
 import com.mision.app.presentation.components.XpIndicator
-import com.mision.app.presentation.celebrations.CelebrationDispatcher
-import com.mision.app.presentation.theme.AppGradients
 import com.mision.app.presentation.theme.Dimens
+import com.mision.app.presentation.theme.MisionColors
+import com.mision.app.presentation.viewmodel.HomeUiState
 import com.mision.app.presentation.viewmodel.HomeViewModel
 
-/**
- * Inicio: greeting, pet hero, progression, streak and today's missions.
- */
+/** Inicio: greeting, pet, progression, streak and today's missions. */
 @Composable
 fun HomeScreen(
     onOpenMissions: () -> Unit,
+    onOpenPet: () -> Unit,
     onOpenShop: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenPet: () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val viewModel: HomeViewModel = viewModel(
@@ -61,209 +63,163 @@ fun HomeScreen(
             gamificationRepository = container.gamificationRepository,
             petRepository = container.petRepository,
             clock = container.clock,
-            celebrationDispatcher = CelebrationDispatcher(
-                notifier = container.notifier,
-                settingsRepository = container.settingsRepository,
-            ),
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val celebration by viewModel.celebration.collectAsStateWithLifecycle()
-    val settings by container.settingsRepository.settings
-        .collectAsStateWithLifecycle(initialValue = AppSettings())
+    val message by viewModel.messages.current.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
     val haptics = LocalHapticFeedback.current
 
-    LaunchedEffect(Unit) { viewModel.refresh() }
+    OnResumeEffect(viewModel::refresh)
+    SnackbarMessageEffect(message, snackbar, viewModel.messages::consumed)
 
-    celebration?.let { dialog ->
+    celebration?.let {
         CelebrationDialog(
-            emoji = dialog.emoji,
-            title = dialog.title,
-            message = dialog.message,
-            onDismiss = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                viewModel.dismissCelebration()
-            },
+            celebration = it,
+            onDismiss = viewModel::dismissCelebration,
             confirmLabel = "¡Seguimos!",
         )
     }
 
     MisionScreen(
-        title = if (state.greeting.isEmpty()) "Misión" else state.greeting,
+        title = state.greeting.ifEmpty { "Misión" },
         subtitle = state.dateLabel,
+        snackbarHostState = snackbar,
         actions = {
-            CoinPill(coins = state.profile.coins)
-            GlassIconButton(
-                imageVector = Icons.Filled.Storefront,
+            MisionIconButton(
+                icon = Icons.Filled.Storefront,
                 contentDescription = "Abrir la tienda",
                 onClick = onOpenShop,
             )
-            GlassIconButton(
-                imageVector = Icons.Filled.Settings,
+            MisionIconButton(
+                icon = Icons.Filled.Settings,
                 contentDescription = "Abrir ajustes",
                 onClick = onOpenSettings,
             )
         },
     ) {
-        PetHero(
-            petName = state.pet.name,
-            speech = state.speech,
-            pet = state.pet,
-            animate = settings.animationsEnabled,
-            onClick = onOpenPet,
-        )
-
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Tu progreso",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    CoinPill(coins = state.profile.coins)
-                }
-                XpIndicator(
-                    level = state.profile.level,
-                    progress = state.profile.levelProgress.progress,
-                    xpIntoLevel = state.profile.levelProgress.xpIntoLevel,
-                    xpToNext = state.profile.levelProgress.xpToNext,
-                )
-            }
-        }
-
+        PetHero(state = state, onOpenPet = onOpenPet)
+        ProgressCard(state = state)
         StreakCard(streak = state.streak)
-
-        GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-                SectionHeader(
-                    title = "Misiones de hoy",
-                    actionLabel = "Ver todas",
-                    onAction = onOpenMissions,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "${state.completedToday} de ${state.totalToday} completadas",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "${(state.progress * 100).toInt()} %",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                GradientProgressBar(
-                    progress = state.progress,
-                    colors = if (state.allCompleted) AppGradients.celebrate else AppGradients.primary,
-                    label = "Progreso de hoy",
-                )
-
-                if (state.missions.isEmpty()) {
-                    EmptyState(
-                        emoji = "🌱",
-                        title = "Aún no hay misiones",
-                        message = "Crea tu primera misión y empieza a construir tu racha.",
-                        actionLabel = "Crear misión",
-                        onAction = onOpenMissions,
-                    )
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-                        state.missions.take(HOME_MISSION_LIMIT).forEach { mission ->
-                            MissionCard(
-                                mission = mission,
-                                onToggle = {
-                                    if (!mission.isCompleted) {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                    viewModel.onToggleMission(mission)
-                                },
-                                onClick = onOpenMissions,
-                            )
-                        }
-                    }
-                    if (state.missions.size > HOME_MISSION_LIMIT) {
-                        GlassButton(
-                            text = "Ver las ${state.missions.size} misiones",
-                            onClick = onOpenMissions,
-                            style = GlassButtonStyle.TONAL,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
-        }
-
-        if (state.allCompleted && state.totalToday > 0) {
-            GlassCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "🎉", style = MaterialTheme.typography.headlineMedium)
-                    Column(modifier = Modifier.padding(start = Dimens.SpaceMd)) {
-                        Text(
-                            text = "¡Día completado!",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "Mañana te esperan nuevas misiones. Descansa tranquilo.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-
+        TodayCard(
+            state = state,
+            onOpenMissions = onOpenMissions,
+            onToggle = { mission ->
+                if (!mission.isCompleted) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                viewModel.onToggleMission(mission)
+            },
+        )
         Text(
             text = state.motivationalLine,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = Dimens.SpaceSm),
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
 @Composable
-private fun PetHero(
-    petName: String,
-    speech: String,
-    pet: com.mision.app.domain.model.Pet,
-    animate: Boolean,
-    onClick: () -> Unit,
-) {
-    TintedGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
+private fun PetHero(state: HomeUiState, onOpenPet: () -> Unit) {
+    HeroSurface(modifier = Modifier.fillMaxWidth()) {
+        AnimatedPet(pet = state.pet, size = Dimens.PetHero)
+        PetSpeechBubble(text = state.speech, petName = state.pet.name)
+        MisionButton(
+            text = "Ver a ${state.pet.name}",
+            onClick = onOpenPet,
+            style = MisionButtonStyle.TONAL,
+            height = Dimens.ButtonHeightCompact,
+            modifier = Modifier.padding(top = Dimens.SpaceMd),
+        )
+    }
+}
+
+@Composable
+private fun ProgressCard(state: HomeUiState) {
+    MisionCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            AnimatedPet(
-                pet = pet,
-                size = 150.dp,
-                animate = animate,
+            SectionHeader(title = "Tu progreso", modifier = Modifier.weight(1f))
+            CoinPill(coins = state.profile.coins)
+        }
+        XpIndicator(
+            level = state.profile.level,
+            progress = state.profile.levelProgress.progress,
+            xpIntoLevel = state.profile.levelProgress.xpIntoLevel,
+            xpToNext = state.profile.levelProgress.xpToNext,
+            modifier = Modifier.padding(top = Dimens.SpaceMd),
+        )
+    }
+}
+
+@Composable
+private fun TodayCard(
+    state: HomeUiState,
+    onOpenMissions: () -> Unit,
+    onToggle: (Mission) -> Unit,
+) {
+    MisionCard(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(
+            title = "Misiones de hoy",
+            actionLabel = "Ver todas",
+            onAction = onOpenMissions,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Dimens.SpaceSm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = if (state.allCompleted) "¡Todas completadas!" else "${state.completedToday} de ${state.totalToday} completadas",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            PetSpeechBubble(
-                text = speech,
-                petName = petName,
-                modifier = Modifier.fillMaxWidth(),
+            Text(
+                text = "${(state.progress * 100).toInt()} %",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
-            GlassButton(
-                text = "Ver a $petName",
-                onClick = onClick,
-                style = GlassButtonStyle.TONAL,
-                height = Dimens.ButtonHeightCompact,
+        }
+        ProgressBar(
+            progress = state.progress,
+            label = "Progreso de hoy: ${state.completedToday} de ${state.totalToday}",
+            color = if (state.allCompleted) MisionColors.game.success else MaterialTheme.colorScheme.primary,
+        )
+
+        if (!state.isLoading && state.missions.isEmpty()) {
+            EmptyState(
+                icon = Icons.Outlined.Spa,
+                title = "Aún no hay misiones",
+                message = "Crea tu primera misión y empieza a construir tu racha.",
+                actionLabel = "Crear misión",
+                actionIcon = Icons.Filled.Add,
+                onAction = onOpenMissions,
+                modifier = Modifier.padding(top = Dimens.SpaceLg),
             )
+        } else {
+            Column(
+                modifier = Modifier.padding(top = Dimens.SpaceMd),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+            ) {
+                state.missions.take(HOME_MISSION_LIMIT).forEach { mission ->
+                    MissionCard(mission = mission, onToggle = { onToggle(mission) })
+                }
+            }
+            if (state.missions.size > HOME_MISSION_LIMIT) {
+                MisionButton(
+                    text = "Ver las ${state.missions.size} misiones",
+                    onClick = onOpenMissions,
+                    style = MisionButtonStyle.OUTLINE,
+                    height = Dimens.ButtonHeightCompact,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Dimens.SpaceMd),
+                )
+            }
         }
     }
 }

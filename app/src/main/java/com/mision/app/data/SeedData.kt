@@ -10,7 +10,11 @@ import com.mision.app.domain.model.MissionDifficulty
  */
 object SeedData {
 
-    const val REMINDER_OFF = -1
+    /**
+     * Value stored in the legacy per-mission reminder columns. Only the daily
+     * reminder exists, so those columns are always written as "off".
+     */
+    private const val NO_REMINDER_HOUR = -1
 
     fun defaultTemplates(todayEpochDay: Int): List<MissionTemplateEntity> = listOf(
         template(
@@ -20,8 +24,6 @@ object SeedData {
             category = MissionCategory.SALUD,
             difficulty = MissionDifficulty.FACIL,
             sortOrder = 0,
-            reminderHour = 9,
-            reminderMinute = 0,
             createdAt = todayEpochDay,
         ),
         template(
@@ -32,8 +34,6 @@ object SeedData {
             difficulty = MissionDifficulty.MEDIA,
             sortOrder = 1,
             durationMinutes = 30,
-            reminderHour = 17,
-            reminderMinute = 0,
             createdAt = todayEpochDay,
         ),
         template(
@@ -101,8 +101,6 @@ object SeedData {
             category = MissionCategory.SALUD,
             difficulty = MissionDifficulty.EPICA,
             sortOrder = 8,
-            reminderHour = 22,
-            reminderMinute = 30,
             createdAt = todayEpochDay,
         ),
     )
@@ -115,8 +113,6 @@ object SeedData {
         difficulty: MissionDifficulty,
         sortOrder: Int,
         durationMinutes: Int = 0,
-        reminderHour: Int = REMINDER_OFF,
-        reminderMinute: Int = 0,
         isRecurring: Boolean = true,
         isCustom: Boolean = false,
         createdAt: Int,
@@ -130,9 +126,9 @@ object SeedData {
         coinReward = difficulty.coinReward,
         isRecurring = isRecurring,
         isCustom = isCustom,
-        reminderEnabled = reminderHour != REMINDER_OFF,
-        reminderHour = reminderHour,
-        reminderMinute = reminderMinute,
+        reminderEnabled = false,
+        reminderHour = NO_REMINDER_HOUR,
+        reminderMinute = 0,
         durationMinutes = durationMinutes,
         sortOrder = sortOrder,
         isActive = true,

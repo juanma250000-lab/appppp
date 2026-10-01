@@ -7,6 +7,7 @@ import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.repository.GamificationRepository
 import com.mision.app.domain.repository.ProgressRepository
 import com.mision.app.domain.repository.ShopRepository
+import com.mision.app.domain.repository.TransactionRunner
 import kotlinx.coroutines.flow.first
 
 data class PurchaseRewardResult(
@@ -16,20 +17,19 @@ data class PurchaseRewardResult(
 
 /**
  * Buys a shop item: validates ownership and balance, deducts the coins and
- * records the purchase. No real money is ever involved.
+ * records the purchase in a single transaction. No real money is ever involved.
  */
 class PurchaseRewardUseCase(
     private val shopRepository: ShopRepository,
     private val progressRepository: ProgressRepository,
     private val gamificationRepository: GamificationRepository,
+    private val transaction: TransactionRunner,
     private val clock: ClockProvider,
 ) {
-    suspend operator fun invoke(item: ShopItem): PurchaseRewardResult {
+    suspend operator fun invoke(item: ShopItem): PurchaseRewardResult = transaction {
         val profile = progressRepository.getProfile()
         val decision = shopRepository.purchaseResult(item, profile.coins)
-        if (decision !is PurchaseResult.Success) {
-            return PurchaseRewardResult(result = decision)
-        }
+        if (decision !is PurchaseResult.Success) return@transaction PurchaseRewardResult(decision)
 
         shopRepository.recordPurchase(itemId = item.id, atEpochSecond = clock.nowEpochSecond())
         progressRepository.saveProfile(profile.copy(coins = decision.remainingCoins))
@@ -42,10 +42,7 @@ class PurchaseRewardUseCase(
         )
         grantAchievementRewards(newAchievements)
 
-        return PurchaseRewardResult(
-            result = decision,
-            newAchievements = newAchievements,
-        )
+        PurchaseRewardResult(result = decision, newAchievements = newAchievements)
     }
 
     /**
@@ -73,13 +70,12 @@ sealed interface EquipResult {
 /** Toggles a purchased cosmetic on the pet (equips or unequips). */
 class EquipRewardUseCase(
     private val shopRepository: ShopRepository,
+    private val transaction: TransactionRunner,
 ) {
-    suspend operator fun invoke(itemId: String): EquipResult {
-        if (itemId !in shopRepository.getPurchases()) return EquipResult.NotOwned
-        val item = shopRepository.observeCatalog().first().firstOrNull { it.id == itemId }
-            ?: return EquipResult.NotOwned
+    suspend operator fun invoke(item: ShopItem): EquipResult = transaction {
+        if (item.id !in shopRepository.getPurchases()) return@transaction EquipResult.NotOwned
         val currentlyEquipped = shopRepository.observeEquipped().first().idFor(item.category)
-        shopRepository.equip(itemId)
-        return if (currentlyEquipped == itemId) EquipResult.Removed else EquipResult.Equipped
+        shopRepository.equip(item.id)
+        if (currentlyEquipped == item.id) EquipResult.Removed else EquipResult.Equipped
     }
 }

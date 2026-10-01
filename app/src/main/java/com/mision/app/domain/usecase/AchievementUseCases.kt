@@ -3,6 +3,7 @@ package com.mision.app.domain.usecase
 import com.mision.app.core.gamification.AchievementCatalog
 import com.mision.app.core.gamification.AchievementEvaluator
 import com.mision.app.core.time.ClockProvider
+import com.mision.app.domain.model.Achievement
 import com.mision.app.domain.model.AchievementDefinition
 import com.mision.app.domain.model.AchievementStats
 import com.mision.app.domain.repository.GamificationRepository
@@ -21,10 +22,9 @@ internal object AchievementEffects {
         shopRepository: ShopRepository,
     ): AchievementStats {
         val profile = progressRepository.getProfile()
-        val streak = gamificationRepository.getStreak()
         return AchievementStats(
             totalMissionsCompleted = profile.totalMissionsCompleted,
-            longestStreak = streak.longestStreak,
+            longestStreak = gamificationRepository.getStreak().longestStreak,
             perfectDays = gamificationRepository.countPerfectDays(),
             level = profile.level,
             coinsEarned = progressRepository.totalCoinsEarned(),
@@ -39,27 +39,23 @@ internal object AchievementEffects {
         shopRepository: ShopRepository,
         clock: ClockProvider,
     ): List<AchievementDefinition> {
-        val already = gamificationRepository.getUnlockedAchievementIds()
         val unlocked = AchievementEvaluator.newlyUnlocked(
             stats = stats(progressRepository, gamificationRepository, shopRepository),
-            alreadyUnlocked = already,
+            alreadyUnlocked = gamificationRepository.getUnlockedAchievementIds(),
         )
-        if (unlocked.isNotEmpty()) {
-            gamificationRepository.unlockAchievements(
-                ids = unlocked.map { it.id },
-                unlockedAtEpochSecond = clock.nowEpochSecond(),
-            )
-        }
+        gamificationRepository.unlockAchievements(
+            ids = unlocked.map { it.id },
+            unlockedAtEpochSecond = clock.nowEpochSecond(),
+        )
         return unlocked
     }
-
-    fun totalCatalogSize(): Int = AchievementCatalog.all.size
 }
 
-/** Everything the achievements section of the profile screen needs. */
-data class AchievementBoard(
-    val achievements: List<com.mision.app.domain.model.Achievement>,
-    val stats: AchievementStats,
+/** One achievement card: its unlock state plus the live progress of its counter. */
+data class AchievementProgress(
+    val achievement: Achievement,
+    /** 0f..1f towards the target. */
+    val progress: Float,
 )
 
 /**
@@ -71,17 +67,17 @@ class GetAchievementsUseCase(
     private val gamificationRepository: GamificationRepository,
     private val shopRepository: ShopRepository,
 ) {
-    suspend operator fun invoke(): AchievementBoard {
+    suspend operator fun invoke(): List<AchievementProgress> {
         val stats = AchievementEffects.stats(progressRepository, gamificationRepository, shopRepository)
         val unlocked = gamificationRepository.getUnlockedAchievementIds()
-        return AchievementBoard(
-            achievements = AchievementCatalog.all.map { definition ->
-                com.mision.app.domain.model.Achievement(
+        return AchievementCatalog.all.map { definition ->
+            AchievementProgress(
+                achievement = Achievement(
                     definition = definition,
-                    unlockedAtEpochSecond = if (definition.id in unlocked) 0L else null,
-                )
-            },
-            stats = stats,
-        )
+                    isUnlocked = definition.id in unlocked,
+                ),
+                progress = definition.progressOf(stats),
+            )
+        }
     }
 }

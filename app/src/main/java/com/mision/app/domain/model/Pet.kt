@@ -1,13 +1,16 @@
 package com.mision.app.domain.model
 
+import com.mision.app.core.gamification.LevelCalculator
+import com.mision.app.core.gamification.LevelProgress
+
 /** Emotional state of the pet, driven by user activity. */
-enum class PetMood(val displayName: String, val emoji: String) {
-    FELIZ("Feliz", "😊"),
-    MOTIVADO("Motivado", "🔥"),
-    CANSADO("Cansado", "🥱"),
-    TRISTE("Triste", "🌧️"),
-    ORGULLOSO("Orgulloso", "🥹"),
-    CELEBRANDO("Celebrando", "🎉"),
+enum class PetMood(val displayName: String) {
+    FELIZ("Feliz"),
+    MOTIVADO("Motivado"),
+    CANSADO("Cansado"),
+    TRISTE("Triste"),
+    ORGULLOSO("Orgulloso"),
+    CELEBRANDO("Celebrando"),
 }
 
 /** Slots a cosmetic item can occupy. */
@@ -50,6 +53,9 @@ data class EquippedCosmetics(
         CosmeticSlot.EMOTE -> copy(emote = itemId)
         CosmeticSlot.SKIN -> copy(skin = itemId)
     }
+
+    /** Ids of every equipped item. */
+    val ids: Set<String> get() = CosmeticSlot.entries.mapNotNull(::idFor).toSet()
 
     fun encode(): String = listOfNotNull(
         hat?.let { "hat:$it" },
@@ -100,12 +106,13 @@ data class Pet(
     val equipped: EquippedCosmetics,
     val lastInteractionEpochDay: Int,
 ) {
-    val level: Int get() = com.mision.app.core.gamification.LevelCalculator.levelFor(xp)
-    val levelProgress: com.mision.app.core.gamification.LevelProgress
-        get() = com.mision.app.core.gamification.LevelCalculator.progressFor(xp)
+    val level: Int get() = LevelCalculator.levelFor(xp)
+    val levelProgress: LevelProgress get() = LevelCalculator.progressFor(xp)
 
     companion object {
-        fun default(name: String, epochDay: Int) = Pet(
+        const val DEFAULT_NAME = "Nube"
+
+        fun default(name: String = DEFAULT_NAME, epochDay: Int) = Pet(
             name = name,
             xp = 0,
             happiness = 70,

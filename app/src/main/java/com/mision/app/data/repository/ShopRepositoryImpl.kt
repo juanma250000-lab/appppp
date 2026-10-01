@@ -2,14 +2,16 @@ package com.mision.app.data.repository
 
 import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.core.time.ClockProvider
-import com.mision.app.data.local.PurchaseEntity
 import com.mision.app.data.local.ProgressDao
-import com.mision.app.domain.model.CosmeticSlot
+import com.mision.app.data.local.PurchaseEntity
+import com.mision.app.data.toEntity
 import com.mision.app.domain.model.EquippedCosmetics
+import com.mision.app.domain.model.Pet
 import com.mision.app.domain.model.PurchaseResult
 import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.repository.ShopRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 class ShopRepositoryImpl(
@@ -17,8 +19,7 @@ class ShopRepositoryImpl(
     private val clock: ClockProvider,
 ) : ShopRepository {
 
-    override fun observeCatalog(): Flow<List<ShopItem>> =
-        kotlinx.coroutines.flow.flowOf(ShopCatalog.items)
+    override fun observeCatalog(): Flow<List<ShopItem>> = flowOf(ShopCatalog.items)
 
     override fun observePurchases(): Flow<Set<String>> =
         dao.observePurchases().map { rows -> rows.map { it.itemId }.toSet() }
@@ -36,18 +37,20 @@ class ShopRepositoryImpl(
     }
 
     override fun observeEquipped(): Flow<EquippedCosmetics> =
-        dao.observePet().map { (it?.equippedCosmetics ?: "").let(EquippedCosmetics::decode) }
+        dao.observePet().map { EquippedCosmetics.decode(it?.equippedCosmetics.orEmpty()) }
 
     override suspend fun equip(itemId: String) {
-        val pet = dao.getPet() ?: return
         val item = ShopCatalog.byId(itemId) ?: return
+        // The pet row is created lazily; equipping must work even before the
+        // first save so the button never silently does nothing.
+        val today = clock.todayEpochDay()
+        val pet = dao.getPet() ?: Pet.default(epochDay = today).toEntity(createdAtEpochDay = today)
         val equipped = EquippedCosmetics.decode(pet.equippedCosmetics)
-        val slot: CosmeticSlot = item.category
-        val current = equipped.idFor(slot)
+        val current = equipped.idFor(item.category)
         dao.upsertPet(
             pet.copy(
                 equippedCosmetics = equipped
-                    .with(slot, if (current == itemId) null else itemId)
+                    .with(item.category, if (current == itemId) null else itemId)
                     .encode(),
             ),
         )

@@ -26,7 +26,7 @@ import org.junit.runner.RunWith
  * gate the "Continuar" button.
  */
 @RunWith(AndroidJUnit4::class)
-class giOnboardingFlowTest {
+class OnboardingFlowTest {
 
     @get:Rule
     val composeRule = createComposeRule()

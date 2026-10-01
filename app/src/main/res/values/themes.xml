@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Mision" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/mision_splash_light</item>
+    <!--
+      Launch theme. Compose draws every screen, so the window only shows the
+      logo until the first frame. Day/night values come from the qualified
+      colors and bools, so a single definition serves both modes.
+    -->
+    <style name="Base.Theme.Mision" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <style name="Theme.Mision" parent="Base.Theme.Mision" />
 </resources>

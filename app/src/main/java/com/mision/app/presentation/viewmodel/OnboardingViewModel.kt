@@ -5,10 +5,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mision.app.domain.model.MissionCategory
-import com.mision.app.domain.repository.PetRepository
-import com.mision.app.domain.repository.ProgressRepository
-import com.mision.app.domain.repository.SettingsRepository
-import com.mision.app.domain.usecase.SetPreferredCategoriesUseCase
+import com.mision.app.domain.usecase.CompleteOnboardingUseCase
+import com.mision.app.domain.usecase.NAME_MAX_LENGTH
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,14 +14,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Steps of the first-run experience, in the order they are shown. */
-enum class OnboardingStep(val dotIndex: Int) {
-    INTRO_ONE(0),
-    INTRO_TWO(0),
-    INTRO_THREE(0),
-    YOUR_NAME(1),
-    PET_NAME(1),
-    CATEGORIES(2),
-    PERMISSIONS(2),
+enum class OnboardingStep {
+    INTRO_ONE,
+    INTRO_TWO,
+    INTRO_THREE,
+    YOUR_NAME,
+    PET_NAME,
+    CATEGORIES,
+    PERMISSIONS,
 }
 
 data class OnboardingState(
@@ -34,8 +32,8 @@ data class OnboardingState(
     val permissionRequested: Boolean = false,
     val isFinishing: Boolean = false,
 ) {
-    val isFirstStep: Boolean get() = step == OnboardingStep.INTRO_ONE
-    val isLastStep: Boolean get() = step == OnboardingStep.PERMISSIONS
+    val isFirstStep: Boolean get() = step == OnboardingStep.entries.first()
+    val isLastStep: Boolean get() = step == OnboardingStep.entries.last()
     val canContinue: Boolean
         get() = when (step) {
             OnboardingStep.YOUR_NAME -> userName.isNotBlank()
@@ -47,101 +45,50 @@ data class OnboardingState(
 
 /** Onboarding: 3 intro screens + name, pet, categories and permission. */
 class OnboardingViewModel(
-    private val progressRepository: ProgressRepository,
-    private val petRepository: PetRepository,
-    private val settingsRepository: SettingsRepository,
-    private val setPreferredCategories: SetPreferredCategoriesUseCase,
+    private val completeOnboarding: CompleteOnboardingUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(OnboardingState())
     val state: StateFlow<OnboardingState> = _state.asStateFlow()
 
-    fun next() {
-        _state.update { current ->
-            if (!current.canContinue) return@update current
-            val next = steps.getOrNull(steps.indexOf(current.step) + 1) ?: current.step
-            current.copy(step = next)
-        }
+    fun next() = _state.update { current ->
+        if (!current.canContinue) return@update current
+        val next = OnboardingStep.entries.getOrNull(current.step.ordinal + 1) ?: current.step
+        current.copy(step = next)
     }
 
-    fun back() {
-        _state.update { current ->
-            val index = steps.indexOf(current.step)
-            current.copy(step = steps.getOrNull(index - 1) ?: current.step)
-        }
+    fun back() = _state.update { current ->
+        current.copy(step = OnboardingStep.entries.getOrNull(current.step.ordinal - 1) ?: current.step)
     }
 
-    fun onUserName(value: String) {
-        _state.update { it.copy(userName = value.trim().take(NAME_MAX_LENGTH)) }
+    // Names are kept as typed (spaces included); they are trimmed when saved.
+    fun onUserName(value: String) = _state.update { it.copy(userName = value.take(NAME_MAX_LENGTH)) }
+
+    fun onPetName(value: String) = _state.update { it.copy(petName = value.take(NAME_MAX_LENGTH)) }
+
+    fun toggleCategory(category: MissionCategory) = _state.update { current ->
+        val updated = if (category in current.categories) current.categories - category else current.categories + category
+        current.copy(categories = updated)
     }
 
-    fun onPetName(value: String) {
-        _state.update { it.copy(petName = value.trim().take(NAME_MAX_LENGTH)) }
-    }
-
-    fun toggleCategory(category: MissionCategory) {
-        _state.update { current ->
-            val updated = if (category in current.categories) {
-                current.categories - category
-            } else {
-                current.categories + category
-            }
-            current.copy(categories = updated)
-        }
-    }
-
-    fun onPermissionRequested() {
-        _state.update { it.copy(permissionRequested = true) }
-    }
+    fun onPermissionRequested() = _state.update { it.copy(permissionRequested = true) }
 
     /** Persists everything and marks onboarding as completed. */
     fun finish(onDone: () -> Unit) {
         if (_state.value.isFinishing) return
         _state.update { it.copy(isFinishing = true) }
+        val current = _state.value
         viewModelScope.launch {
-            runCatching {
-                val current = _state.value
-                val profile = progressRepository.getProfile()
-                if (current.userName.isNotBlank()) {
-                    progressRepository.saveProfile(profile.copy(name = current.userName))
-                }
-                val pet = petRepository.getPet()
-                petRepository.savePet(pet.copy(name = current.petName.ifBlank { pet.name }))
-                setPreferredCategories(current.categories)
-                settingsRepository.markNotificationPermissionRequested()
-                settingsRepository.setOnboardingCompleted(true)
-            }
+            // Even if saving the names fails the user must not be stuck here:
+            // defaults are used and the app opens normally.
+            runCatching { completeOnboarding(current.userName, current.petName, current.categories) }
             onDone()
         }
     }
 
     companion object {
-        private const val NAME_MAX_LENGTH = 24
-
-        private val steps = listOf(
-            OnboardingStep.INTRO_ONE,
-            OnboardingStep.INTRO_TWO,
-            OnboardingStep.INTRO_THREE,
-            OnboardingStep.YOUR_NAME,
-            OnboardingStep.PET_NAME,
-            OnboardingStep.CATEGORIES,
-            OnboardingStep.PERMISSIONS,
-        )
-
-        fun factory(
-            progressRepository: ProgressRepository,
-            petRepository: PetRepository,
-            settingsRepository: SettingsRepository,
-            setPreferredCategories: SetPreferredCategoriesUseCase,
-        ) = viewModelFactory {
-            initializer {
-                OnboardingViewModel(
-                    progressRepository = progressRepository,
-                    petRepository = petRepository,
-                    settingsRepository = settingsRepository,
-                    setPreferredCategories = setPreferredCategories,
-                )
-            }
+        fun factory(completeOnboarding: CompleteOnboardingUseCase) = viewModelFactory {
+            initializer { OnboardingViewModel(completeOnboarding) }
         }
     }
 }

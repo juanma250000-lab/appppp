@@ -2,6 +2,7 @@ package com.mision.app.domain.usecase
 
 import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.domain.model.PurchaseResult
+import com.mision.app.testing.DirectTransactionRunner
 import com.mision.app.testing.FakeClock
 import com.mision.app.testing.FakeGamificationRepository
 import com.mision.app.testing.FakeProgressRepository
@@ -29,6 +30,7 @@ class PurchaseRewardUseCaseTest {
             shopRepository = shop,
             progressRepository = progress,
             gamificationRepository = gamification,
+            transaction = DirectTransactionRunner,
             clock = clock,
         )
     }
@@ -91,13 +93,13 @@ class PurchaseRewardUseCaseTest {
 
     @Test
     fun `equipping requires ownership`() = runTest {
-        val equip = EquipRewardUseCase(shop)
+        val equip = EquipRewardUseCase(shop, DirectTransactionRunner)
 
-        assertEquals(EquipResult.NotOwned, equip(partyHat.id))
+        assertEquals(EquipResult.NotOwned, equip(partyHat))
 
         setCoins(200)
         useCase(partyHat)
-        assertEquals(EquipResult.Equipped, equip(partyHat.id))
-        assertEquals(EquipResult.Removed, equip(partyHat.id))
+        assertEquals(EquipResult.Equipped, equip(partyHat))
+        assertEquals(EquipResult.Removed, equip(partyHat))
     }
 }

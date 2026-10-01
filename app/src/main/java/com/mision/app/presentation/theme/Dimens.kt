@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
  * visually consistent and easy to re-skin.
  */
 object Dimens {
-    // Spacing scale
+    // Spacing scale (4dp grid)
     val SpaceXs: Dp = 4.dp
     val SpaceSm: Dp = 8.dp
     val SpaceMd: Dp = 12.dp
@@ -17,61 +17,48 @@ object Dimens {
     val SpaceXl: Dp = 20.dp
     val Space2xl: Dp = 24.dp
     val Space3xl: Dp = 32.dp
-    val Space4xl: Dp = 40.dp
 
     // Corner radius scale
-    val RadiusXs: Dp = 10.dp
-    val RadiusSm: Dp = 16.dp
-    val RadiusMd: Dp = 22.dp
-    val RadiusLg: Dp = 28.dp
-    val RadiusXl: Dp = 36.dp
-    val RadiusPill: Dp = 999.dp
+    val RadiusXs: Dp = 8.dp
+    val RadiusSm: Dp = 12.dp
+    val RadiusMd: Dp = 16.dp
+    val RadiusLg: Dp = 24.dp
+    val RadiusXl: Dp = 28.dp
 
-    // Glass system
-    val GlassBorder: Dp = 1.dp
-    val GlassBlur: Dp = 22.dp
-    val GlassBlurStrong: Dp = 34.dp
-    val GlassElevation: Dp = 10.dp
-    val GlassElevationHigh: Dp = 18.dp
+    // Strokes
+    val Hairline: Dp = 1.dp
 
     // Icons
     val IconSm: Dp = 16.dp
     val IconMd: Dp = 20.dp
     val IconLg: Dp = 24.dp
-    val IconXl: Dp = 32.dp
-    val IconXxl: Dp = 48.dp
+    val IconContainer: Dp = 40.dp
+    val IconContainerLg: Dp = 56.dp
 
     // Controls / touch targets (accessibility minimum is 48dp)
     val TouchTargetMin: Dp = 48.dp
     val ButtonHeight: Dp = 52.dp
-    val ButtonHeightCompact: Dp = 40.dp
-    val ProgressBarHeight: Dp = 12.dp
-    val BottomBarHeight: Dp = 74.dp
+    val ButtonHeightCompact: Dp = 44.dp
+    val ProgressBarHeight: Dp = 8.dp
     val ScreenHorizontalPadding: Dp = 20.dp
+    val ScreenBottomPadding: Dp = 32.dp
+    val ContentMaxWidth: Dp = 640.dp
+    val DialogMaxHeight: Dp = 680.dp
+
+    // Illustrations
+    val PetHero: Dp = 148.dp
+    val PetStage: Dp = 200.dp
+    val PetPreview: Dp = 112.dp
+    val PetActionHeight: Dp = 72.dp
+    val ShopPreviewHeight: Dp = 132.dp
+    val WeeklyChartHeight: Dp = 96.dp
+    val BrandMark: Dp = 32.dp
+    val BrandMarkLarge: Dp = 72.dp
 
     // Animation durations (ms)
-    const val AnimFast = 160
-    const val AnimMedium = 300
-    const val AnimSlow = 520
-    const val AnimCelebration = 950
-    const val AnimPetIdle = 2200
-}
-
-/**
- * Glass surface tuning. The values are intentionally conservative: the app
- * should read as a premium translucent product, not as a foggy overlay.
- */
-object GlassTokens {
-    /** Fill opacity for light mode cards. */
-    const val LightFillAlpha = 0.58f
-    const val LightStrokeAlpha = 0.72f
-    const val LightHighlightAlpha = 0.85f
-
-    /** Fill opacity for dark mode cards. */
-    const val DarkFillAlpha = 0.62f
-    const val DarkStrokeAlpha = 0.16f
-    const val DarkHighlightAlpha = 0.35f
-
-    /** Content overlay that keeps text readable over gradients. */
-    const val ScrimAlpha = 0.28f
+    const val AnimFast = 150
+    const val AnimMedium = 280
+    const val AnimConfetti = 2_400
+    const val AnimPetIdle = 4_400
+    const val AnimPetBlink = 3_400
 }

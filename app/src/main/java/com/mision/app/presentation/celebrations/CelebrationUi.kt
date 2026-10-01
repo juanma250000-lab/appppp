@@ -1,86 +1,96 @@
 package com.mision.app.presentation.celebrations
 
-import com.mision.app.domain.repository.SettingsRepository
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.mision.app.core.gamification.LevelCalculator
 import com.mision.app.domain.usecase.MissionCompletionResult
-import com.mision.app.notifications.MisionNotifier
-import kotlinx.coroutines.flow.first
+
+/** What is being celebrated; drives the dialog icon. */
+enum class CelebrationKind { LEVEL_UP, STREAK, PERFECT_DAY, ACHIEVEMENT, MISSION }
+
+val CelebrationKind.icon: ImageVector
+    get() = when (this) {
+        CelebrationKind.LEVEL_UP -> Icons.Filled.MilitaryTech
+        CelebrationKind.STREAK -> Icons.Filled.LocalFireDepartment
+        CelebrationKind.PERFECT_DAY -> Icons.Filled.Celebration
+        CelebrationKind.ACHIEVEMENT -> Icons.Filled.EmojiEvents
+        CelebrationKind.MISSION -> Icons.Filled.CheckCircle
+    }
 
 /** UI payload of a celebration dialog. Always in Spanish. */
 data class CelebrationUi(
-    val emoji: String,
+    val kind: CelebrationKind,
     val title: String,
     val message: String,
     val details: List<String> = emptyList(),
 )
 
 /**
- * Picks the most meaningful celebration of a mission completion and gathers
- * every secondary reward as detail lines, so a single dialog can explain
- * everything that just happened.
+ * Picks the most meaningful celebration of a mission completion and lists
+ * every secondary reward once, so a single dialog explains everything that
+ * just happened without repeating itself.
  */
 fun MissionCompletionResult.toCelebrationUi(): CelebrationUi {
-    val milestoneEvent = milestone
+    val milestone = milestone
+    val kind = when {
+        leveledUp -> CelebrationKind.LEVEL_UP
+        milestone != null -> CelebrationKind.STREAK
+        perfectDay -> CelebrationKind.PERFECT_DAY
+        newAchievements.isNotEmpty() -> CelebrationKind.ACHIEVEMENT
+        else -> CelebrationKind.MISSION
+    }
     val details = buildList {
-        if (bonusXp > 0) add("+$bonusXp XP extra")
-        if (bonusCoins > 0) add("+$bonusCoins monedas extra")
-        newAchievements.forEach { add("Logro: ${it.name}") }
-        if (perfectDay && !leveledUp && milestoneEvent == null && newAchievements.isEmpty()) {
-            add("Todas las misiones de hoy completadas")
+        if (milestone != null) {
+            // The streak headline already shows the milestone title.
+            val prefix = if (kind == CelebrationKind.STREAK) "Bonificación:" else milestone.title
+            add("$prefix +${milestone.rewardXp} XP · +${milestone.rewardCoins} monedas")
         }
+        if (kind != CelebrationKind.ACHIEVEMENT) newAchievements.forEach { add("Logro: ${it.name}") }
+        if (achievementXp > 0 || achievementCoins > 0) {
+            add("Logros: +$achievementXp XP · +$achievementCoins monedas")
+        }
+        if (perfectDay && kind != CelebrationKind.PERFECT_DAY) add("Todas las misiones de hoy completadas")
     }
 
-    return when {
-        leveledUp -> CelebrationUi(
-            emoji = "🚀",
+    return when (kind) {
+        CelebrationKind.LEVEL_UP -> CelebrationUi(
+            kind = kind,
             title = "¡Subiste de nivel!",
-            message = "Ahora eres nivel $newLevel. Sigue así y llegarás al ${(newLevel + 1).coerceAtMost(60)} muy pronto.",
+            message = if (newLevel >= LevelCalculator.MAX_LEVEL) {
+                "Has llegado al nivel máximo. ¡Leyenda!"
+            } else {
+                "Ahora eres nivel $newLevel. Sigue así y llegarás al ${newLevel + 1} muy pronto."
+            },
             details = details,
         )
-
-        milestoneEvent != null -> CelebrationUi(
-            emoji = "🔥",
-            title = milestoneEvent.title,
-            message = milestoneEvent.message,
-            details = details + "+${milestoneEvent.rewardXp} XP · +${milestoneEvent.rewardCoins} monedas",
+        CelebrationKind.STREAK -> CelebrationUi(
+            kind = kind,
+            title = milestone?.title.orEmpty(),
+            message = milestone?.message.orEmpty(),
+            details = details,
         )
-
-        perfectDay -> CelebrationUi(
-            emoji = "🌟",
+        CelebrationKind.PERFECT_DAY -> CelebrationUi(
+            kind = kind,
             title = "¡Día completado!",
             message = "Has cerrado todas las misiones de hoy. Tu mascota está encantada.",
             details = details,
         )
-
-        newAchievements.isNotEmpty() -> CelebrationUi(
-            emoji = "🏆",
-            title = "¡Logro desbloqueado!",
-            message = newAchievements.joinToString("\n") { "• ${it.name}: ${it.description}" },
+        CelebrationKind.ACHIEVEMENT -> CelebrationUi(
+            kind = kind,
+            title = if (newAchievements.size == 1) "¡Logro desbloqueado!" else "¡Logros desbloqueados!",
+            message = newAchievements.joinToString("\n") { "${it.name}: ${it.description}" },
             details = details,
         )
-
-        else -> CelebrationUi(
-            emoji = "✨",
+        CelebrationKind.MISSION -> CelebrationUi(
+            kind = kind,
             title = "¡Misión completada!",
             message = "Has ganado $xpGained XP y $coinsGained monedas.",
             details = details,
         )
-    }
-}
-
-/**
- * Bridges the domain results with the notification layer: celebrations are
- * only posted when the user enabled notifications, and they never crash the
- * flow if permission is missing.
- */
-class CelebrationDispatcher(
-    private val notifier: MisionNotifier,
-    private val settingsRepository: SettingsRepository,
-) {
-    suspend fun dispatch(result: MissionCompletionResult) {
-        val enabled = settingsRepository.settings.first().notificationsEnabled
-        if (!enabled) return
-        if (result.leveledUp) notifier.showLevelUp(result.newLevel)
-        result.newAchievements.forEach { notifier.showAchievement(it.name) }
-        result.milestone?.let { notifier.showStreakMilestone(it.days) }
     }
 }

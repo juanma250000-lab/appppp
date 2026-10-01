@@ -1,102 +1,136 @@
 package com.mision.app.presentation.theme
 
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 /**
  * Brand palette for Misión.
  *
- * The identity is built around a deep violet/indigo core with aqua and rose
- * accents. Light and dark variants are intentionally designed instead of being
- * an inversion of each other so the Liquid Glass surfaces keep their depth.
+ * A single violet brand colour carries the identity; teal and rose are quiet
+ * supporting accents. Surfaces are neutral so content, not decoration, leads.
+ * Every foreground/background pair below meets WCAG AA for normal text.
  */
 
-// ---- Light palette -------------------------------------------------------
-val VioletPrimary = Color(0xFF5B4BE0)
-val VioletOnPrimary = Color(0xFFFFFFFF)
-val VioletContainer = Color(0xFFE5E1FF)
-val OnVioletContainer = Color(0xFF180F52)
+/** Brand violet, shared by the launcher icon, the splash and the in-app mark. */
+val BrandViolet = Color(0xFF5B47F0)
+val BrandVioletLight = Color(0xFF7B68FF)
 
-val AquaSecondary = Color(0xFF00969A)
-val AquaContainer = Color(0xFFCFF7F6)
-val OnAquaContainer = Color(0xFF002021)
+internal val LightColors = lightColorScheme(
+    primary = BrandViolet,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFE6E1FF),
+    onPrimaryContainer = Color(0xFF1C0F5C),
+    secondary = Color(0xFF0F7F76),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFCCF3EE),
+    onSecondaryContainer = Color(0xFF002A26),
+    tertiary = Color(0xFFC63A63),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFD9E2),
+    onTertiaryContainer = Color(0xFF3F0018),
+    background = Color(0xFFF7F7FB),
+    onBackground = Color(0xFF1A1A24),
+    surface = Color(0xFFFCFBFF),
+    onSurface = Color(0xFF1A1A24),
+    surfaceVariant = Color(0xFFE4E3EC),
+    onSurfaceVariant = Color(0xFF55546A),
+    surfaceTint = BrandViolet,
+    surfaceBright = Color(0xFFFCFBFF),
+    surfaceDim = Color(0xFFDCDBE4),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF6F5FB),
+    surfaceContainer = Color(0xFFF0EFF7),
+    surfaceContainerHigh = Color(0xFFEAE9F2),
+    surfaceContainerHighest = Color(0xFFE4E3EC),
+    outline = Color(0xFF7A798E),
+    outlineVariant = Color(0xFFD9D8E3),
+    error = Color(0xFFC4323A),
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD7),
+    onErrorContainer = Color(0xFF410004),
+    inverseSurface = Color(0xFF2F2E38),
+    inverseOnSurface = Color(0xFFF2F0FA),
+    inversePrimary = Color(0xFFBCB2FF),
+    scrim = Color.Black,
+)
 
-val RoseTertiary = Color(0xFFE5477E)
-val RoseContainer = Color(0xFFFFDCE9)
-val OnRoseContainer = Color(0xFF3E0021)
-
-val LightBackground = Color(0xFFF4F5FF)
-val LightSurface = Color(0xFFFBFBFF)
-val LightSurfaceHigh = Color(0xFFECEEFB)
-val LightSurfaceVariant = Color(0xFFE3E4F2)
-val OnLightSurface = Color(0xFF1A1B25)
-val OnLightSurfaceVariant = Color(0xFF464754)
-val LightOutline = Color(0xFF767786)
-
-// ---- Dark palette --------------------------------------------------------
-val DarkPrimary = Color(0xFFB3A8FF)
-val DarkOnPrimary = Color(0xFF241A76)
-val DarkPrimaryContainer = Color(0xFF3B2FA8)
-val DarkOnPrimaryContainer = Color(0xFFE5E1FF)
-
-val DarkSecondary = Color(0xFF63E4E1)
-val DarkSecondaryContainer = Color(0xFF005052)
-val DarkOnSecondaryContainer = Color(0xFFCFF7F6)
-
-val DarkTertiary = Color(0xFFFFB1C9)
-val DarkTertiaryContainer = Color(0xFF8E1B4E)
-val DarkOnTertiaryContainer = Color(0xFFFFDCE9)
-
-val DarkBackground = Color(0xFF09081C)
-val DarkSurface = Color(0xFF111027)
-val DarkSurfaceHigh = Color(0xFF191834)
-val DarkSurfaceVariant = Color(0xFF232146)
-val OnDarkSurface = Color(0xFFECEBFF)
-val OnDarkSurfaceVariant = Color(0xFFB6B5D6)
-val DarkOutline = Color(0xFF807F9F)
-
-// ---- Accent / feedback colors -------------------------------------------
-val SuccessGreen = Color(0xFF22B573)
-val WarningAmber = Color(0xFFF5A524)
-val DangerRed = Color(0xFFE5484D)
-val CoinGold = Color(0xFFF5C542)
-val StreakFlame = Color(0xFFFF7A45)
-val XpLime = Color(0xFF9BE15D)
-val XpBlue = Color(0xFF4CC9F0)
+internal val DarkColors = darkColorScheme(
+    primary = Color(0xFFBCB2FF),
+    onPrimary = Color(0xFF26168A),
+    primaryContainer = Color(0xFF3F2DC2),
+    onPrimaryContainer = Color(0xFFE6E1FF),
+    secondary = Color(0xFF6FDACD),
+    onSecondary = Color(0xFF003731),
+    secondaryContainer = Color(0xFF005049),
+    onSecondaryContainer = Color(0xFFA2F2E7),
+    tertiary = Color(0xFFFFB1C3),
+    onTertiary = Color(0xFF650030),
+    tertiaryContainer = Color(0xFF8C1A45),
+    onTertiaryContainer = Color(0xFFFFD9E2),
+    background = Color(0xFF111018),
+    onBackground = Color(0xFFE6E4EF),
+    surface = Color(0xFF111018),
+    onSurface = Color(0xFFE6E4EF),
+    surfaceVariant = Color(0xFF2E2D38),
+    onSurfaceVariant = Color(0xFFC6C4D3),
+    surfaceTint = Color(0xFFBCB2FF),
+    surfaceBright = Color(0xFF37353F),
+    surfaceDim = Color(0xFF111018),
+    surfaceContainerLowest = Color(0xFF0C0B12),
+    surfaceContainerLow = Color(0xFF18171F),
+    surfaceContainer = Color(0xFF1D1C25),
+    surfaceContainerHigh = Color(0xFF27262F),
+    surfaceContainerHighest = Color(0xFF32313A),
+    outline = Color(0xFF908E9E),
+    outlineVariant = Color(0xFF3B3A45),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    inverseSurface = Color(0xFFE6E4EF),
+    inverseOnSurface = Color(0xFF2F2E38),
+    inversePrimary = BrandViolet,
+    scrim = Color.Black,
+)
 
 /**
- * Curated gradients used across the app. Keeping them in a single place makes
- * the visual identity easy to tune without touching screen code.
+ * Game specific roles Material does not cover. They are theme aware so the
+ * coin, the streak flame and success states keep their contrast in dark mode.
  */
-object AppGradients {
-    /** Full screen backdrop: layered, soft and slightly asymmetric. */
-    val backdropLight = listOf(
-        Color(0xFFE7E4FF),
-        Color(0xFFF3F1FF),
-        Color(0xFFEAF6FF),
-        Color(0xFFFDEFF6),
-    )
+@Immutable
+data class GameColors(
+    val coin: Color,
+    val onCoin: Color,
+    val streak: Color,
+    val streakContainer: Color,
+    val success: Color,
+    val onSuccess: Color,
+)
 
-    val backdropDark = listOf(
-        Color(0xFF0A0820),
-        Color(0xFF140E33),
-        Color(0xFF0A1030),
-        Color(0xFF1A0E2A),
-    )
+internal val LightGameColors = GameColors(
+    coin = Color(0xFFF5B82E),
+    onCoin = Color(0xFF3D2A00),
+    streak = Color(0xFFC2410C),
+    streakContainer = Color(0xFFFFE8D9),
+    success = Color(0xFF1B8A4E),
+    onSuccess = Color.White,
+)
 
-    val primary = listOf(Color(0xFF6C5CE7), Color(0xFF8E7BFF), Color(0xFF4CC9F0))
-    val xp = listOf(XpLime, XpBlue)
-    val coin = listOf(Color(0xFFFFE27A), CoinGold, Color(0xFFE9A63A))
-    val streak = listOf(Color(0xFFFFD166), StreakFlame, Color(0xFFF45B8A))
-    val celebrate = listOf(Color(0xFFFFD166), Color(0xFF7CF5C2), Color(0xFF74A7FF), Color(0xFFE58BFF))
-    val glassHighlight = listOf(
-        Color.White.copy(alpha = 0.55f),
-        Color.White.copy(alpha = 0.06f),
-    )
-    val glassHighlightDark = listOf(
-        Color.White.copy(alpha = 0.22f),
-        Color.White.copy(alpha = 0.03f),
-    )
-}
+internal val DarkGameColors = GameColors(
+    coin = Color(0xFFF5C451),
+    onCoin = Color(0xFF3D2A00),
+    streak = Color(0xFFFF9A5C),
+    streakContainer = Color(0xFF4A2A14),
+    success = Color(0xFF4ADE80),
+    onSuccess = Color(0xFF00391C),
+)
 
-fun verticalGradient(colors: List<Color>) = Brush.verticalGradient(colors)
+/** Confetti palette for celebrations; decorative only, never carries meaning. */
+val ConfettiColors: List<Color> = listOf(
+    BrandVioletLight,
+    Color(0xFF2EC4B6),
+    Color(0xFFF5B82E),
+    Color(0xFFFF6F91),
+)

@@ -1,10 +1,12 @@
 package com.mision.app.domain.usecase
 
+import com.mision.app.testing.DirectTransactionRunner
 import com.mision.app.testing.FakeClock
 import com.mision.app.testing.FakeGamificationRepository
 import com.mision.app.testing.FakeMissionRepository
 import com.mision.app.testing.FakePetRepository
 import com.mision.app.testing.FakeProgressRepository
+import com.mision.app.domain.model.StreakState
 import com.mision.app.testing.testMission
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -34,6 +36,7 @@ class UncompleteMissionUseCaseTest {
             gamificationRepository = gamification,
             shopRepository = com.mision.app.testing.FakeShopRepository(),
             petRepository = pet,
+            transaction = DirectTransactionRunner,
             clock = clock,
         )
         uncomplete = UncompleteMissionUseCase(
@@ -41,6 +44,7 @@ class UncompleteMissionUseCaseTest {
             progressRepository = progress,
             gamificationRepository = gamification,
             petRepository = pet,
+            transaction = DirectTransactionRunner,
             clock = clock,
         )
     }
@@ -48,6 +52,8 @@ class UncompleteMissionUseCaseTest {
     @Test
     fun `undoing a completion removes the rewards of that mission only`() = runTest {
         missions.add(testMission(today, id = "a:$today", templateId = "a", xpReward = 25, coinReward = 10))
+        // A second, pending mission keeps the day open (no perfect-day bonus).
+        missions.add(testMission(today, id = "z:$today", templateId = "z"))
 
         val gained = complete("a:$today")!!
         // 25 from the mission + 50 from the "Primer paso" achievement bonus.
@@ -73,20 +79,22 @@ class UncompleteMissionUseCaseTest {
 
         uncomplete("a:$today")
         assertEquals(0, gamification.getStreak().currentStreak)
-        assertEquals(com.mision.app.domain.model.StreakState.NEVER, gamification.getStreak().lastCompletedEpochDay)
+        assertEquals(StreakState.NEVER, gamification.getStreak().lastCompletedEpochDay)
         assertEquals(0, gamification.getStreak().totalActiveDays)
     }
 
     @Test
     fun `the daily log of the day is corrected`() = runTest {
         missions.add(testMission(today, id = "a:$today", templateId = "a", xpReward = 25, coinReward = 10))
+        // A second, pending mission keeps the day open (no perfect-day bonus).
+        missions.add(testMission(today, id = "z:$today", templateId = "z"))
 
         complete("a:$today")
         uncomplete("a:$today")
 
         val log = progress.getDailyLog(today)
         assertEquals(0, log!!.completedCount)
-        assertEquals(1, log.totalMissions)
+        assertEquals(2, log.totalMissions)
         // The mission rewards are removed; the achievement bonus already granted stays.
         assertEquals(50, log.xpEarned)
         assertEquals(10, log.coinsEarned)
@@ -128,6 +136,8 @@ class UncompleteMissionUseCaseTest {
     @Test
     fun `counters never drop below zero`() = runTest {
         missions.add(testMission(today, id = "a:$today", templateId = "a", xpReward = 25, coinReward = 10))
+        // A second, pending mission keeps the day open (no perfect-day bonus).
+        missions.add(testMission(today, id = "z:$today", templateId = "z"))
 
         complete("a:$today")
         progress.saveProfile(progress.getProfile().copy(totalXp = 5, coins = 3))
@@ -138,5 +148,51 @@ class UncompleteMissionUseCaseTest {
         // The daily log only loses the mission's own rewards.
         assertEquals(50, progress.getDailyLog(today)!!.xpEarned)
         assertEquals(10, progress.getDailyLog(today)!!.coinsEarned)
+    }
+
+    @Test
+    fun `undoing one of several completions keeps the streak of the day`() = runTest {
+        missions.add(testMission(today, id = "a:$today", templateId = "a"))
+        missions.add(testMission(today, id = "b:$today", templateId = "b"))
+
+        complete("a:$today")
+        complete("b:$today")
+        uncomplete("b:$today")
+
+        // "a" is still done, so today still counts for the streak.
+        assertEquals(1, gamification.getStreak().currentStreak)
+        assertEquals(today, gamification.getStreak().lastCompletedEpochDay)
+
+        uncomplete("a:$today")
+        assertEquals(0, gamification.getStreak().currentStreak)
+    }
+
+    @Test
+    fun `undoing and redoing a milestone day never pays the milestone twice`() = runTest {
+        missions.add(testMission(today, id = "a:$today", templateId = "a"))
+        // Two days in a row already: completing today reaches the 3 day milestone.
+        gamification.saveStreak(
+            StreakState(
+                currentStreak = 2,
+                longestStreak = 2,
+                lastCompletedEpochDay = today - 1,
+                totalActiveDays = 2,
+                isActive = true,
+            ),
+        )
+
+        val first = complete("a:$today")!!
+        assertEquals(3, first.milestone?.days)
+        val afterFirst = progress.getProfile()
+
+        assertTrue(uncomplete("a:$today"))
+        assertEquals(2, gamification.getStreak().currentStreak)
+
+        val second = complete("a:$today")!!
+        assertEquals(3, second.milestone?.days)
+        // Same balance as after the first completion: the milestone was taken
+        // back on undo and paid only once in total.
+        assertEquals(afterFirst.coins, progress.getProfile().coins)
+        assertEquals(afterFirst.totalXp, progress.getProfile().totalXp)
     }
 }

@@ -14,9 +14,6 @@ data class MissionDraft(
     val category: MissionCategory,
     val difficulty: MissionDifficulty,
     val durationMinutes: Int? = null,
-    val reminderEnabled: Boolean = false,
-    val reminderHour: Int = 9,
-    val reminderMinute: Int = 0,
     val isRecurring: Boolean = true,
 )
 
@@ -54,6 +51,4 @@ interface MissionRepository {
 
     /** Pending and total missions of a day, in that order. */
     suspend fun countForDay(epochDay: Int): Pair<Int, Int>
-
-    suspend fun pruneOldInstances(beforeEpochDay: Int)
 }

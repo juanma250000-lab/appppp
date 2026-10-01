@@ -72,11 +72,6 @@ object StreakCalculator {
         return state.copy(currentStreak = 0, isActive = false)
     }
 
-    /** First day of the streak, useful for calendars and debugging. */
-    fun streakStartDay(state: StreakState): Int? =
-        if (state.lastCompletedEpochDay == StreakState.NEVER || state.currentStreak <= 0) null
-        else state.lastCompletedEpochDay - (state.currentStreak - 1)
-
     /**
      * Undoes [registerCompletedDay] for [day], used when the user reverts a
      * mission. Only the day that owns the tip of the streak is affected, so

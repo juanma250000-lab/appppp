@@ -33,9 +33,6 @@ fun MissionTemplateEntity.toMission(instance: MissionInstanceEntity): Mission = 
     createdAtEpochDay = createdAtEpochDay,
     isRecurring = isRecurring,
     isCustom = isCustom,
-    reminderEnabled = reminderEnabled,
-    reminderHour = reminderHour,
-    reminderMinute = reminderMinute,
     durationMinutes = durationMinutes.takeIf { it > 0 },
     sortOrder = sortOrder,
 )
@@ -50,7 +47,7 @@ fun ProfileEntity.toDomain(): UserProfile = UserProfile(
 
 fun UserProfile.toEntity(): ProfileEntity = ProfileEntity(
     id = ProfileEntity.PROFILE_ID,
-    name = name.ifBlank { "Amigo" },
+    name = name.ifBlank { UserProfile.DEFAULT_NAME },
     totalXp = totalXp.coerceAtLeast(0),
     coins = coins.coerceAtLeast(0),
     totalMissionsCompleted = totalMissionsCompleted.coerceAtLeast(0),
@@ -67,16 +64,17 @@ fun PetEntity.toDomain(): Pet = Pet(
     lastInteractionEpochDay = lastInteractionEpochDay,
 )
 
-fun Pet.toEntity(): PetEntity = PetEntity(
+/** [createdAtEpochDay] is not part of the domain model, so callers pass the stored value. */
+fun Pet.toEntity(createdAtEpochDay: Int): PetEntity = PetEntity(
     id = PetEntity.PET_ID,
-    name = name.ifBlank { "Nube" },
+    name = name.ifBlank { Pet.DEFAULT_NAME },
     xp = xp.coerceAtLeast(0),
     happiness = happiness.coerceIn(0, 100),
     energy = energy.coerceIn(0, 100),
     mood = mood.name,
     equippedCosmetics = equipped.encode(),
     lastInteractionEpochDay = lastInteractionEpochDay,
-    createdAtEpochDay = lastInteractionEpochDay,
+    createdAtEpochDay = createdAtEpochDay,
 )
 
 fun StreakEntity.toDomain(isActive: Boolean): StreakState = StreakState(
@@ -112,4 +110,4 @@ fun DailyLog.toEntity(): DailyLogEntity = DailyLogEntity(
 )
 
 inline fun <reified T : Enum<T>> enumValueOr(raw: String, fallback: T): T =
-    runCatching { enumValueOf<T>(raw) }.getOrDefault(fallback)
+    enumValues<T>().firstOrNull { it.name == raw } ?: fallback

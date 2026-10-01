@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1B1145</color>
-    <color name="mision_splash_light">#EEF0FF</color>
-    <color name="mision_splash_dark">#0B0A1F</color>
+    <!-- Brand (kept in sync with BrandViolet / BrandVioletLight in Color.kt). -->
+    <color name="brand_violet">#5B47F0</color>
+    <color name="brand_violet_light">#7B68FF</color>
+    <color name="brand_violet_deep">#4A34E0</color>
+    <!-- Launch window, matching the Compose background of each mode. -->
+    <color name="window_background">#F7F7FB</color>
 </resources>

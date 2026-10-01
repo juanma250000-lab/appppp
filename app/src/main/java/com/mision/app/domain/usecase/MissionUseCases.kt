@@ -14,8 +14,13 @@ import com.mision.app.domain.repository.MissionDraft
 import com.mision.app.domain.repository.MissionRepository
 import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
+import com.mision.app.domain.repository.SettingsRepository
 import com.mision.app.domain.repository.ShopRepository
+import com.mision.app.domain.repository.TransactionRunner
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /** Everything that changed when a mission was completed, for celebrations. */
 data class MissionCompletionResult(
@@ -24,10 +29,10 @@ data class MissionCompletionResult(
     val xpGained: Int,
     /** Total coins added (mission + streak milestone + achievements). */
     val coinsGained: Int,
-    /** XP that came from streak milestones and achievements. */
-    val bonusXp: Int,
-    /** Coins that came from streak milestones and achievements. */
-    val bonusCoins: Int,
+    /** XP that came from achievements (milestone XP is reported by [milestone]). */
+    val achievementXp: Int,
+    /** Coins that came from achievements (milestone coins are reported by [milestone]). */
+    val achievementCoins: Int,
     val previousLevel: Int,
     val newLevel: Int,
     val leveledUp: Boolean,
@@ -37,20 +42,16 @@ data class MissionCompletionResult(
     val completedToday: Int,
     val totalToday: Int,
 ) {
-    val remainingToday: Int get() = (totalToday - completedToday).coerceAtLeast(0)
     val milestone: StreakMilestone? get() = streakUpdate.milestone
-    val isNewStreakRecord: Boolean get() = streakUpdate.isNewRecord
-    val hasCelebration: Boolean
-        get() = leveledUp || newAchievements.isNotEmpty() || milestone != null || perfectDay
 }
 
 /**
  * Single entry point for completing a mission.
  *
- * Orchestrates every affected aggregate in one call: mission instance,
+ * Orchestrates every affected aggregate in one transaction: mission instance,
  * profile progression, daily statistics, streak, pet reaction and
  * achievements, so the UI never has to (and cannot forget to) update one of
- * them.
+ * them, and a double tap can never pay the same mission twice.
  */
 class CompleteMissionUseCase(
     private val missionRepository: MissionRepository,
@@ -58,10 +59,15 @@ class CompleteMissionUseCase(
     private val gamificationRepository: GamificationRepository,
     private val shopRepository: ShopRepository,
     private val petRepository: PetRepository,
+    private val transaction: TransactionRunner,
     private val clock: ClockProvider,
 ) {
 
-    suspend operator fun invoke(instanceId: String): MissionCompletionResult? {
+    suspend operator fun invoke(instanceId: String): MissionCompletionResult? = transaction {
+        complete(instanceId)
+    }
+
+    private suspend fun complete(instanceId: String): MissionCompletionResult? {
         val mission = missionRepository.getMission(instanceId) ?: return null
         val today = clock.todayEpochDay()
         // Only missions of the current day can be completed: a stale instance
@@ -75,23 +81,14 @@ class CompleteMissionUseCase(
         ) ?: return null
 
         // --- Streak (registered first: it can only grow on completion) ------
-        val streakBefore = gamificationRepository.getStreak()
-        val streakUpdate = StreakCalculator.registerCompletedDay(streakBefore, today)
+        val streakUpdate = StreakCalculator.registerCompletedDay(gamificationRepository.getStreak(), today)
         gamificationRepository.saveStreak(streakUpdate.state)
 
         // --- Profile progression -------------------------------------------
         val profileBefore = progressRepository.getProfile()
-        var xpGained = updated.xpReward
-        var coinsGained = updated.coinReward
-        var bonusXp = 0
-        var bonusCoins = 0
-
-        streakUpdate.milestone?.let { milestone ->
-            xpGained += milestone.rewardXp
-            coinsGained += milestone.rewardCoins
-            bonusXp += milestone.rewardXp
-            bonusCoins += milestone.rewardCoins
-        }
+        val milestone = streakUpdate.milestone
+        var xpGained = updated.xpReward + (milestone?.rewardXp ?: 0)
+        var coinsGained = updated.coinReward + (milestone?.rewardCoins ?: 0)
 
         var profile = profileBefore.copy(
             totalXp = profileBefore.totalXp + xpGained,
@@ -104,19 +101,22 @@ class CompleteMissionUseCase(
         val (pending, total) = missionRepository.countForDay(today)
         val completedToday = (total - pending).coerceIn(0, total)
         val perfectDay = total > 0 && pending == 0
-
         val logBefore = progressRepository.getDailyLog(today) ?: DailyLog.empty(today)
+        // Saved before the achievements are evaluated: "perfect day" and
+        // "coins earned" achievements read today's log and must see this mission.
         var log = logBefore.copy(
             completedCount = completedToday,
             totalMissions = total,
+            xpEarned = logBefore.xpEarned + xpGained,
+            coinsEarned = logBefore.coinsEarned + coinsGained,
         )
+        progressRepository.saveDailyLog(log)
 
         // --- Pet reaction ----------------------------------------------------
-        val ratio = if (total <= 0) 0f else completedToday.toFloat() / total
         PetEffects.onMissionCompleted(
             petRepository = petRepository,
             todayEpochDay = today,
-            completionRatio = ratio,
+            completionRatio = if (total <= 0) 0f else completedToday.toFloat() / total,
             allCompleted = perfectDay,
             newStreakRecord = streakUpdate.isNewRecord,
             xpGained = xpGained,
@@ -129,34 +129,29 @@ class CompleteMissionUseCase(
             shopRepository = shopRepository,
             clock = clock,
         )
-        if (newAchievements.isNotEmpty()) {
-            val achievementXp = newAchievements.sumOf { it.rewardXp }
-            val achievementCoins = newAchievements.sumOf { it.rewardCoins }
-            if (achievementXp > 0 || achievementCoins > 0) {
-                profile = profile.copy(
-                    totalXp = profile.totalXp + achievementXp,
-                    coins = profile.coins + achievementCoins,
-                )
-                progressRepository.saveProfile(profile)
-                xpGained += achievementXp
-                coinsGained += achievementCoins
-                bonusXp += achievementXp
-                bonusCoins += achievementCoins
-            }
+        val achievementXp = newAchievements.sumOf { it.rewardXp }
+        val achievementCoins = newAchievements.sumOf { it.rewardCoins }
+        if (achievementXp > 0 || achievementCoins > 0) {
+            profile = profile.copy(
+                totalXp = profile.totalXp + achievementXp,
+                coins = profile.coins + achievementCoins,
+            )
+            progressRepository.saveProfile(profile)
+            xpGained += achievementXp
+            coinsGained += achievementCoins
+            log = log.copy(
+                xpEarned = log.xpEarned + achievementXp,
+                coinsEarned = log.coinsEarned + achievementCoins,
+            )
+            progressRepository.saveDailyLog(log)
         }
-
-        log = log.copy(
-            xpEarned = logBefore.xpEarned + xpGained,
-            coinsEarned = logBefore.coinsEarned + coinsGained,
-        )
-        progressRepository.saveDailyLog(log)
 
         return MissionCompletionResult(
             mission = updated,
             xpGained = xpGained,
             coinsGained = coinsGained,
-            bonusXp = bonusXp,
-            bonusCoins = bonusCoins,
+            achievementXp = achievementXp,
+            achievementCoins = achievementCoins,
             previousLevel = profileBefore.level,
             newLevel = profile.level,
             leveledUp = profile.level > profileBefore.level,
@@ -170,18 +165,27 @@ class CompleteMissionUseCase(
 }
 
 /**
- * Reverts a completion (only allowed for today's missions). Rewards earned by
- * the mission are removed; milestone and achievement rewards already granted
- * are intentionally kept.
+ * Reverts a completion (only allowed for today's missions).
+ *
+ * The mission's own rewards are removed. The streak only steps back once no
+ * mission of the day remains completed, and the milestone paid by that day is
+ * taken back with it: otherwise undoing and redoing the only mission of a
+ * milestone day would pay the milestone again and again. Achievement rewards
+ * already granted are kept, since achievements never unlock twice.
  */
 class UncompleteMissionUseCase(
     private val missionRepository: MissionRepository,
     private val progressRepository: ProgressRepository,
     private val gamificationRepository: GamificationRepository,
     private val petRepository: PetRepository,
+    private val transaction: TransactionRunner,
     private val clock: ClockProvider,
 ) {
-    suspend operator fun invoke(instanceId: String): Boolean {
+    suspend operator fun invoke(instanceId: String): Boolean = transaction {
+        uncomplete(instanceId)
+    }
+
+    private suspend fun uncomplete(instanceId: String): Boolean {
         val mission = missionRepository.getMission(instanceId) ?: return false
         val today = clock.todayEpochDay()
         if (!mission.canBeUncompleted(today)) return false
@@ -189,50 +193,68 @@ class UncompleteMissionUseCase(
         missionRepository.setCompleted(id = instanceId, completed = false, atEpochSecond = 0L)
             ?: return false
 
+        val (pending, total) = missionRepository.countForDay(today)
+        val completedToday = (total - pending).coerceIn(0, total)
+
+        val milestone = if (completedToday == 0) revertStreak(today) else null
+        val xpLost = mission.xpReward + (milestone?.rewardXp ?: 0)
+        val coinsLost = mission.coinReward + (milestone?.rewardCoins ?: 0)
+
         val profile = progressRepository.getProfile()
         progressRepository.saveProfile(
             profile.copy(
-                totalXp = (profile.totalXp - mission.xpReward).coerceAtLeast(0),
-                coins = (profile.coins - mission.coinReward).coerceAtLeast(0),
+                totalXp = (profile.totalXp - xpLost).coerceAtLeast(0),
+                coins = (profile.coins - coinsLost).coerceAtLeast(0),
                 totalMissionsCompleted = (profile.totalMissionsCompleted - 1).coerceAtLeast(0),
             ),
         )
 
-        val (pending, total) = missionRepository.countForDay(today)
-        val completedToday = (total - pending).coerceIn(0, total)
-        val log = progressRepository.getDailyLog(today)
-        if (log != null) {
+        progressRepository.getDailyLog(today)?.let { log ->
             progressRepository.saveDailyLog(
                 log.copy(
                     completedCount = completedToday,
                     totalMissions = total,
-                    xpEarned = (log.xpEarned - mission.xpReward).coerceAtLeast(0),
-                    coinsEarned = (log.coinsEarned - mission.coinReward).coerceAtLeast(0),
+                    xpEarned = (log.xpEarned - xpLost).coerceAtLeast(0),
+                    coinsEarned = (log.coinsEarned - coinsLost).coerceAtLeast(0),
                 ),
             )
         }
 
-        gamificationRepository.saveStreak(
-            StreakCalculator.revertCompletedDay(gamificationRepository.getStreak(), today),
-        )
-
-        val ratio = if (total <= 0) 0f else completedToday.toFloat() / total
         PetEffects.refresh(
             petRepository = petRepository,
             todayEpochDay = today,
-            completionRatio = ratio,
+            completionRatio = if (total <= 0) 0f else completedToday.toFloat() / total,
             allCompleted = total > 0 && pending == 0,
         )
         return true
     }
+
+    /** Steps the streak back for [today]; returns the milestone that day had paid. */
+    private suspend fun revertStreak(today: Int): StreakMilestone? {
+        val before = gamificationRepository.getStreak()
+        if (before.lastCompletedEpochDay != today) return null
+        gamificationRepository.saveStreak(StreakCalculator.revertCompletedDay(before, today))
+        return StreakCalculator.milestoneFor(before.currentStreak)
+    }
 }
 
-/** Live list of the missions of a given day, already sorted for the UI. */
+/**
+ * Live list of the missions of a given day, pending first and, among them,
+ * the user's favourite categories first.
+ */
 class GetDailyMissionsUseCase(
     private val missionRepository: MissionRepository,
+    private val settingsRepository: SettingsRepository,
 ) {
-    operator fun invoke(epochDay: Int): Flow<List<Mission>> =
-        missionRepository.observeMissionsForDay(epochDay)
+    operator fun invoke(epochDay: Int): Flow<List<Mission>> = combine(
+        missionRepository.observeMissionsForDay(epochDay),
+        settingsRepository.settings.map { it.preferredCategories }.distinctUntilChanged(),
+    ) { missions, favourites ->
+        // sortedWith is stable, so the repository order is kept inside each group.
+        missions.sortedWith(
+            compareBy<Mission> { it.isCompleted }.thenBy { it.category !in favourites },
+        )
+    }
 }
 
 /** Creates today's instances from the templates (seeding on first launch). */
@@ -270,11 +292,8 @@ class CreateCustomMissionUseCase(
     private val clock: ClockProvider,
 ) {
     suspend operator fun invoke(draft: MissionDraft): AppResult<Mission> {
-        if (draft.title.isBlank()) {
-            return AppResult.Error("Escribe un nombre para la misión.")
-        }
-        val mission = missionRepository.addCustomMission(draft, clock.todayEpochDay())
-        return AppResult.Success(mission)
+        validate(draft)?.let { return it }
+        return AppResult.Success(missionRepository.addCustomMission(draft, clock.todayEpochDay()))
     }
 }
 
@@ -283,9 +302,7 @@ class UpdateCustomMissionUseCase(
     private val missionRepository: MissionRepository,
 ) {
     suspend operator fun invoke(templateId: String, draft: MissionDraft): AppResult<Mission> {
-        if (draft.title.isBlank()) {
-            return AppResult.Error("Escribe un nombre para la misión.")
-        }
+        validate(draft)?.let { return it }
         val updated = missionRepository.updateCustomMission(templateId, draft)
             ?: return AppResult.Error("Esta misión no se puede editar. Crea una nueva si lo necesitas.")
         return AppResult.Success(updated)
@@ -298,4 +315,14 @@ class DeleteCustomMissionUseCase(
 ) {
     suspend operator fun invoke(templateId: String): Boolean =
         missionRepository.deleteCustomMission(templateId)
+}
+
+/** Maximum length of a mission title, enforced by the editor and the use cases. */
+const val MISSION_TITLE_MAX_LENGTH = 60
+
+private fun validate(draft: MissionDraft): AppResult.Error? = when {
+    draft.title.isBlank() -> AppResult.Error("Escribe un nombre para la misión.")
+    draft.title.trim().length > MISSION_TITLE_MAX_LENGTH ->
+        AppResult.Error("El nombre puede tener como máximo $MISSION_TITLE_MAX_LENGTH caracteres.")
+    else -> null
 }

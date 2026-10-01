@@ -50,9 +50,6 @@ interface MissionDao {
     @Update
     suspend fun updateInstance(instance: MissionInstanceEntity)
 
-    @Query("DELETE FROM mission_instances WHERE id = :id")
-    suspend fun deleteInstance(id: String)
-
     @Query("DELETE FROM mission_instances WHERE templateId = :templateId")
     suspend fun deleteInstancesForTemplate(templateId: String)
 

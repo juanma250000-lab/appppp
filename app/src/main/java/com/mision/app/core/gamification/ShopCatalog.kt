@@ -38,10 +38,12 @@ object ShopCatalog {
         ShopItem("skin_galaxy", "Galaxia", "Una pieza realmente especial.", CosmeticSlot.SKIN, 700, "galaxy", "#8E7BFF"),
     )
 
-    fun byId(id: String): ShopItem? = items.firstOrNull { it.id == id }
+    private val itemsById: Map<String, ShopItem> = items.associateBy { it.id }
 
-    fun forSlot(slot: CosmeticSlot): List<ShopItem> = items.filter { it.category == slot }
+    /** Constant time: the pet renderer resolves equipped items on every frame. */
+    fun byId(id: String): ShopItem? = itemsById[id]
 
+    /** Order in which the shop presents its categories. */
     val categoryOrder: List<CosmeticSlot> = listOf(
         CosmeticSlot.HAT,
         CosmeticSlot.ACCESSORY,
