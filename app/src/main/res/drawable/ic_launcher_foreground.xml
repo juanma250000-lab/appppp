@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.0"
+        android:scaleY="1.0"
+        android:pivotX="54"
+        android:pivotY="54">
+        <!-- Body of the pet -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,34c11.6,0 21,9.4 21,21c0,12.9 -9.4,24 -21,24c-11.6,0 -21,-11.1 -21,-24C33,43.4 42.4,34 54,34z" />
+        <!-- Left eye -->
+        <path
+            android:fillColor="#1B1145"
+            android:pathData="M47,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+        <!-- Right eye -->
+        <path
+            android:fillColor="#1B1145"
+            android:pathData="M61,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+        <!-- Smile -->
+        <path
+            android:strokeColor="#1B1145"
+            android:strokeWidth="2.4"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:pathData="M48,61.5c1.8,3 4,4.5 6,4.5c2,0 4.2,-1.5 6,-4.5" />
+        <!-- Sparkle -->
+        <path
+            android:fillColor="#8BE9FD"
+            android:pathData="M74,32l1.8,4.2L80,38l-4.2,1.8L74,44l-1.8,-4.2L68,38l4.2,-1.8z" />
+    </group>
+</vector>

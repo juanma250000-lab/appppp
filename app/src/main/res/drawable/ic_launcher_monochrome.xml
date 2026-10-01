@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Single-colour silhouette used by themed/monochrome launchers. The eyes are
+  knocked out with an even-odd fill so the face still reads when the system
+  tints the whole layer with the wallpaper palette.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,34c11.6,0 21,9.4 21,21c0,12.9 -9.4,24 -21,24c-11.6,0 -21,-11.1 -21,-24C33,43.4 42.4,34 54,34z M47,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0 M61,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+</vector>

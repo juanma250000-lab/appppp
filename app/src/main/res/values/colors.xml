@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#1B1145</color>
+    <color name="mision_splash_light">#EEF0FF</color>
+    <color name="mision_splash_dark">#0B0A1F</color>
+</resources>
