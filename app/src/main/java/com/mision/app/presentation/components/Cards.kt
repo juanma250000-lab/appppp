@@ -34,7 +34,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import com.mision.app.domain.model.Achievement
 import com.mision.app.domain.model.AchievementIcon
 import com.mision.app.domain.model.StreakState
@@ -342,21 +341,3 @@ fun LabeledStatBar(
     }
 }
 
-/** Tinted round icon container reused by list rows. */
-@Composable
-fun IconBadge(
-    emoji: String,
-    modifier: Modifier = Modifier,
-    size: Dp = Dimens.TouchTargetMin,
-    gradient: List<Color> = AppGradients.primary,
-) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(Brush.linearGradient(gradient)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = emoji, style = MaterialTheme.typography.titleMedium)
-    }
-}

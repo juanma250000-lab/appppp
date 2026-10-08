@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -45,12 +46,16 @@ fun MisionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // On tablets and landscape the content keeps a readable width
+            // instead of stretching edge to edge.
             MisionTopBar(
                 title = title,
                 subtitle = subtitle,
                 onBack = onBack,
                 actions = actions,
+                modifier = Modifier.widthIn(max = Dimens.ContentMaxWidth),
             )
             val scrollState = rememberScrollState()
             Column(
@@ -67,9 +72,16 @@ fun MisionScreen(
                         // Clears the floating bottom bar on the tab routes.
                         bottom = Dimens.Space4xl + LocalNavBottomPadding.current,
                     ),
-                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
-                content = content,
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = Dimens.ContentMaxWidth)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+                    content = content,
+                )
+            }
         }
     }
 }
@@ -128,16 +140,3 @@ fun MisionTopBar(
     }
 }
 
-/** Horizontal content row with standard spacing. */
-@Composable
-fun GlassRow(
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
-}

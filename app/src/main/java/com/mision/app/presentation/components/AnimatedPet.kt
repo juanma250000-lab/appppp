@@ -25,6 +25,7 @@ import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.domain.model.EquippedCosmetics
 import com.mision.app.domain.model.Pet
 import com.mision.app.domain.model.PetMood
+import com.mision.app.presentation.LocalAnimationsEnabled
 import com.mision.app.presentation.theme.Dimens
 import kotlin.math.sin
 
@@ -32,17 +33,29 @@ import kotlin.math.sin
  * The virtual pet, drawn entirely with Compose primitives so it stays crisp at
  * any size and can wear every cosmetic from the shop.
  *
- * Idle animation (bob + blink) can be disabled globally from settings and is
- * automatically reduced for users that ask the system to disable animations.
+ * Idle animation (bob + blink) follows the "Animaciones" setting through
+ * [LocalAnimationsEnabled]; callers can still force it off with [animate].
  */
 @Composable
 fun AnimatedPet(
     pet: Pet,
     modifier: Modifier = Modifier,
     size: Dp = 168.dp,
-    animate: Boolean = true,
+    animate: Boolean = LocalAnimationsEnabled.current,
     accessibilityLabel: String? = null,
 ) {
+    val label = accessibilityLabel
+        ?: "Mascota ${pet.name}, ${pet.mood.displayName.lowercase()}"
+    val sized = modifier
+        .size(size)
+        .semantics { contentDescription = label }
+
+    if (!animate) {
+        // No infinite transition at all: a still pet costs a single draw.
+        StaticPet(pet = pet, modifier = sized)
+        return
+    }
+
     val transition = rememberInfiniteTransition(label = "petIdle")
     val time by transition.animateFloat(
         initialValue = 0f,
@@ -63,25 +76,33 @@ fun AnimatedPet(
         label = "petBlink",
     )
 
-    val label = accessibilityLabel
-        ?: "Mascota ${pet.name}, ${pet.mood.displayName.lowercase()}"
-
-    Canvas(
-        modifier = modifier
-            .size(size)
-            .semantics { contentDescription = label },
-    ) {
-        val t = if (animate) time else 0f
-        val blinking = if (animate) blink > 0.94f else false
+    // Animated values are only read inside the draw lambda, so each frame
+    // re-draws the canvas without recomposing.
+    Canvas(modifier = sized) {
         drawPet(
             pet = pet,
-            bobOffset = (sin(t) * 4.dp.toPx()),
-            blink = blinking,
-            celebrate = animate,
-            phase = t,
+            bobOffset = sin(time) * 4.dp.toPx(),
+            blink = blink > 0.94f,
+            celebrate = true,
+            phase = time,
         )
     }
 }
+
+/**
+ * Motionless pet that fills the space it is given. Used where many pets are
+ * on screen at once (shop previews) and when animations are disabled.
+ */
+@Composable
+fun StaticPet(pet: Pet, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        drawPet(pet = pet, bobOffset = 0f, blink = false, celebrate = false, phase = 0f)
+    }
+}
+
+/** Equipped cosmetics are stored by item id; the renderer works with style ids. */
+private fun styleOf(itemId: String?): String? =
+    itemId?.let { ShopCatalog.byId(it)?.styleId }
 
 private fun DrawScope.drawPet(
     pet: Pet,
@@ -210,18 +231,110 @@ private fun DrawScope.drawPet(
     }
 
     // --- Cosmetics ---------------------------------------------------------
-    pet.equipped.hat?.let { drawHat(it, cx, bodyCy, radius, palette) }
-    pet.equipped.accessory?.let { drawAccessory(it, cx, eyeY, radius) }
-    pet.equipped.effect?.let { drawEffect(it, cx, bodyCy, radius, phase) }
+    styleOf(pet.equipped.skin)?.let { drawSkinPattern(it, cx, bodyCy, radius) }
+    styleOf(pet.equipped.hat)?.let { drawHat(it, cx, bodyCy, radius, palette) }
+    styleOf(pet.equipped.accessory)?.let { drawAccessory(it, cx, eyeY, radius) }
+    styleOf(pet.equipped.emote)?.let { drawEmote(it, cx, bodyCy, radius, palette, phase) }
+    styleOf(pet.equipped.effect)?.let { drawEffect(it, cx, bodyCy, radius, phase) }
+}
+
+/** Subtle surface detail so skins read as more than a recolour. */
+private fun DrawScope.drawSkinPattern(styleId: String, cx: Float, bodyCy: Float, radius: Float) {
+    when (styleId) {
+        "galaxy" -> {
+            val specks = listOf(
+                -0.50f to -0.48f, 0.46f to -0.55f, -0.80f to 0.10f,
+                0.80f to 0.22f, -0.32f to 0.80f, 0.38f to 0.78f,
+            )
+            specks.forEachIndexed { index, (dx, dy) ->
+                drawCircle(
+                    color = Color.White.copy(alpha = if (index % 2 == 0) 0.85f else 0.55f),
+                    radius = radius * (if (index % 2 == 0) 0.045f else 0.03f),
+                    center = Offset(cx + dx * radius, bodyCy + dy * radius),
+                )
+            }
+        }
+        "gold" -> drawArc(
+            color = Color.White.copy(alpha = 0.35f),
+            startAngle = 200f,
+            sweepAngle = 70f,
+            useCenter = false,
+            topLeft = Offset(cx - radius * 0.82f, bodyCy - radius * 0.82f),
+            size = Size(radius * 1.64f, radius * 1.64f),
+            style = Stroke(width = radius * 0.06f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+        )
+        else -> Unit
+    }
+}
+
+/** Emotes: a raised paw for the wave, floating notes for the dance. */
+private fun DrawScope.drawEmote(
+    styleId: String,
+    cx: Float,
+    bodyCy: Float,
+    radius: Float,
+    palette: List<Color>,
+    phase: Float,
+) {
+    when (styleId) {
+        "wave" -> {
+            val swing = sin(phase * 2f) * radius * 0.08f
+            val paw = Offset(cx + radius * 1.02f + swing, bodyCy - radius * 0.38f)
+            drawCircle(color = palette[2], radius = radius * 0.22f, center = paw)
+            drawCircle(color = palette[0], radius = radius * 0.12f, center = paw)
+            val motion = Stroke(width = radius * 0.045f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            listOf(0.36f, 0.50f).forEach { r ->
+                drawArc(
+                    color = palette[1].copy(alpha = 0.7f),
+                    startAngle = -60f,
+                    sweepAngle = 70f,
+                    useCenter = false,
+                    topLeft = Offset(paw.x - radius * r, paw.y - radius * r),
+                    size = Size(radius * r * 2f, radius * r * 2f),
+                    style = motion,
+                )
+            }
+        }
+        "dance" -> {
+            val note = Color(0xFFFF7BAC)
+            val lift = sin(phase * 2f) * radius * 0.06f
+            listOf(-1f to 0f, 1f to 0.18f).forEach { (side, drop) ->
+                val head = Offset(cx + side * radius * 1.22f, bodyCy - radius * (1.15f - drop) + lift * side)
+                drawOval(
+                    color = note,
+                    topLeft = Offset(head.x - radius * 0.11f, head.y - radius * 0.08f),
+                    size = Size(radius * 0.22f, radius * 0.16f),
+                )
+                drawLine(
+                    color = note,
+                    start = Offset(head.x + radius * 0.10f, head.y),
+                    end = Offset(head.x + radius * 0.10f, head.y - radius * 0.38f),
+                    strokeWidth = radius * 0.045f,
+                )
+                drawLine(
+                    color = note,
+                    start = Offset(head.x + radius * 0.10f, head.y - radius * 0.38f),
+                    end = Offset(head.x + radius * 0.24f, head.y - radius * 0.28f),
+                    strokeWidth = radius * 0.045f,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                )
+            }
+        }
+        else -> Unit
+    }
 }
 
 private fun bodyPalette(equipped: EquippedCosmetics): List<Color> {
     val colorHex = equipped.color?.let { ShopCatalog.byId(it)?.previewColorHex }
     val skinHex = equipped.skin?.let { ShopCatalog.byId(it)?.previewColorHex }
-    val base = parseHexColor(
+    val picked = parseHexColor(
         colorHex ?: skinHex ?: "#8E7BFF",
         Color(0xFF8E7BFF),
     )
+    // The galaxy skin shares the default hue, so it gets a deeper night tone
+    // (unless a colour item overrides the body colour).
+    val galaxy = colorHex == null && styleOf(equipped.skin) == "galaxy"
+    val base = if (galaxy) mix(picked, Color(0xFF1B1446), 0.45f) else picked
     val light = mix(base, Color.White, 0.35f)
     val dark = mix(base, Color(0xFF2A1F66), 0.35f)
     return listOf(light, base, dark)

@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.domain.model.CosmeticSlot
 import com.mision.app.domain.model.PurchaseResult
 import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.repository.ProgressRepository
 import com.mision.app.domain.repository.ShopRepository
+import com.mision.app.domain.usecase.EquipResult
+import com.mision.app.domain.usecase.PurchaseRewardResult
 import com.mision.app.domain.usecase.UseCases
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,8 +28,14 @@ data class ShopUiState(
     val coins: Int = 0,
     val selectedSlot: CosmeticSlot? = null,
 ) {
-    val visibleItems: List<ShopItem>
-        get() = if (selectedSlot == null) items else items.filter { it.category == selectedSlot }
+    /** Items of the selected category, grouped in the same order as the filter chips. */
+    val visibleItems: List<ShopItem> by lazy {
+        val filtered = if (selectedSlot == null) items else items.filter { it.category == selectedSlot }
+        filtered.sortedBy { ShopCatalog.categoryOrder.indexOf(it.category) }
+    }
+
+    /** How many catalogue items the user already owns. */
+    val ownedCount: Int by lazy { items.count { it.id in ownedIds } }
 
     fun isOwned(item: ShopItem): Boolean = item.id in ownedIds
     fun isEquipped(item: ShopItem): Boolean = item.id in equippedIds
@@ -58,12 +67,7 @@ class ShopViewModel(
             isLoading = false,
             items = catalog,
             ownedIds = purchases,
-            equippedIds = equipped.encode()
-                .split(";")
-                .mapNotNull { part ->
-                    part.substringAfter(':', "").takeIf { it.isNotBlank() }
-                }
-                .toSet(),
+            equippedIds = CosmeticSlot.entries.mapNotNull(equipped::idFor).toSet(),
             coins = profile.coins,
             selectedSlot = slot,
         )
@@ -87,38 +91,40 @@ class ShopViewModel(
         viewModelScope.launch {
             _busyItemId.value = item.id
             try {
-                val state = uiState.value
-                val result = if (state.isOwned(item)) {
-                    val equipResult = useCases.equipReward(item.id)
-                    _message.value = when (equipResult) {
-                        com.mision.app.domain.usecase.EquipResult.Equipped ->
-                            "¡${item.name} equipado!"
-                        com.mision.app.domain.usecase.EquipResult.Removed ->
-                            "Has quitado ${item.name}."
-                        com.mision.app.domain.usecase.EquipResult.NotOwned ->
-                            "Completa más misiones para poder usarlo."
+                _message.value = if (uiState.value.isOwned(item)) {
+                    when (useCases.equipReward(item.id)) {
+                        EquipResult.Equipped -> "¡${item.name} equipado!"
+                        EquipResult.Removed -> "Has quitado ${item.name}."
+                        EquipResult.NotOwned -> "Completa más misiones para poder usarlo."
                     }
-                    null
                 } else {
-                    useCases.purchaseReward(item).result
-                }
-                if (result != null) {
-                    _message.value = when (result) {
-                        is PurchaseResult.Success ->
-                            "¡${item.name} comprado! Te quedan ${result.remainingCoins} monedas."
-                        is PurchaseResult.AlreadyOwned ->
-                            "Ya tienes ${item.name}. Puedes equiparlo cuando quieras."
-                        is PurchaseResult.NotEnoughCoins ->
-                            "Te faltan ${result.missing} monedas. Completa misiones para conseguir más."
-                        is PurchaseResult.UnknownItem ->
-                            "Este artículo ya no está disponible."
-                    }
+                    purchaseMessage(item, useCases.purchaseReward(item))
                 }
             } finally {
                 _busyItemId.value = null
             }
         }
     }
+
+    private fun purchaseMessage(item: ShopItem, purchase: PurchaseRewardResult): String =
+        when (val result = purchase.result) {
+            is PurchaseResult.Success -> buildString {
+                append("¡${item.name} comprado! Ya puedes equiparlo a tu mascota.")
+                // Achievements unlocked by the purchase pay coins too, so the
+                // balance is reported after those rewards.
+                purchase.newAchievements.forEach { achievement ->
+                    append("\n\nLogro desbloqueado: ${achievement.name} (+${achievement.rewardCoins} monedas).")
+                }
+                val bonus = purchase.newAchievements.sumOf { it.rewardCoins }
+                append("\n\nTe quedan ${result.remainingCoins + bonus} monedas.")
+            }
+            is PurchaseResult.AlreadyOwned ->
+                "Ya tienes ${item.name}. Puedes equiparlo cuando quieras."
+            is PurchaseResult.NotEnoughCoins ->
+                "Te faltan ${result.missing} monedas. Completa misiones para conseguir más."
+            is PurchaseResult.UnknownItem ->
+                "Este artículo ya no está disponible."
+        }
 
     companion object {
         fun factory(

@@ -49,6 +49,11 @@ object Dimens {
     val BottomBarHeight: Dp = 74.dp
     val ScreenHorizontalPadding: Dp = 20.dp
 
+    // Layout widths for large screens (tablets, landscape)
+    val ContentMaxWidth: Dp = 840.dp
+    val BottomBarMaxWidth: Dp = 560.dp
+    val DialogMaxWidth: Dp = 560.dp
+
     // Animation durations (ms)
     const val AnimFast = 160
     const val AnimMedium = 300

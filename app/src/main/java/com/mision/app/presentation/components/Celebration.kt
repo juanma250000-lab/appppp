@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mision.app.presentation.LocalAnimationsEnabled
 import com.mision.app.presentation.theme.AppGradients
 import com.mision.app.presentation.theme.Dimens
 import kotlin.math.abs
@@ -89,6 +90,7 @@ fun CelebrationDialog(
     message: String,
     onDismiss: () -> Unit,
     confirmLabel: String = "¡Genial!",
+    details: List<String> = emptyList(),
     extraContent: (@Composable () -> Unit)? = null,
 ) {
     Dialog(
@@ -96,8 +98,8 @@ fun CelebrationDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            ConfettiOverlay()
-            GlassCard(
+            if (LocalAnimationsEnabled.current) ConfettiOverlay()
+            GlassDialogSurface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(Dimens.Space2xl),
@@ -121,6 +123,21 @@ fun CelebrationDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
+                    if (details.isNotEmpty()) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),
+                        ) {
+                            details.forEach { line ->
+                                Text(
+                                    text = line,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
                     extraContent?.invoke()
                     GlassButton(
                         text = confirmLabel,
@@ -148,7 +165,7 @@ fun ConfirmDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        GlassCard(
+        GlassDialogSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Dimens.Space2xl),

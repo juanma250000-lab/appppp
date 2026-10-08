@@ -42,6 +42,7 @@ import com.mision.app.presentation.components.ConfirmDialog
 import com.mision.app.presentation.components.GlassButton
 import com.mision.app.presentation.components.GlassButtonStyle
 import com.mision.app.presentation.components.GlassCard
+import com.mision.app.presentation.components.GlassDialogSurface
 import com.mision.app.presentation.components.GlassChip
 import com.mision.app.presentation.components.GlassIconButton
 import com.mision.app.presentation.components.GradientProgressBar
@@ -76,7 +77,7 @@ fun MissionsScreen() {
     val completion by viewModel.completion.collectAsStateWithLifecycle()
     val infoMessage by viewModel.infoMessage.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) { container.useCases.ensureDailyMissions() }
+    LaunchedEffect(Unit) { viewModel.refresh() }
 
     completion?.let { dialog ->
         CelebrationDialog(
@@ -85,6 +86,7 @@ fun MissionsScreen() {
             message = dialog.message,
             onDismiss = viewModel::dismissCelebration,
             confirmLabel = "¡Genial!",
+            details = dialog.details,
         )
     }
 
@@ -289,7 +291,7 @@ private fun MissionEditorSheet(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        GlassCard(
+        GlassDialogSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 640.dp)

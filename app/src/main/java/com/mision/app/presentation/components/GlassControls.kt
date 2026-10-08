@@ -6,13 +6,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,11 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -57,7 +55,7 @@ fun GlassButton(
     shape: Shape = RoundedCornerShape(Dimens.RadiusPill),
     contentPadding: PaddingValues = PaddingValues(horizontal = Dimens.Space2xl),
 ) {
-    val alpha by animateFloatAsState(
+    val contentAlpha by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.45f,
         animationSpec = tween(Dimens.AnimFast),
         label = "buttonAlpha",
@@ -80,16 +78,11 @@ fun GlassButton(
     Row(
         modifier = modifier
             .height(height)
-            .scale(alpha)
+            // Disabled buttons fade; scaling them made them shrink to half size.
+            .graphicsLayer { alpha = contentAlpha }
             .clip(shape)
             .background(background, shape)
-            .then(
-                if (style == GlassButtonStyle.OUTLINE) {
-                    Modifier.border(Dimens.GlassBorder, glassBorderBrush(), shape)
-                } else {
-                    Modifier.border(Dimens.GlassBorder, glassBorderBrush(), shape)
-                },
-            )
+            .border(Dimens.GlassBorder, glassBorderBrush(), shape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
@@ -200,7 +193,7 @@ fun GlassChip(
                 brush = glassBorderBrush(),
                 shape = shape,
             )
-            .clickable(role = Role.Checkbox, onClick = onClick)
+            .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
             .padding(horizontal = Dimens.SpaceLg),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -215,25 +208,6 @@ fun GlassChip(
             maxLines = 1,
         )
     }
-}
-
-/** Thin divider that fades at both ends, like a light refraction. */
-@Composable
-fun GlassDivider(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxHeight(1f)
-            .height(1.dp)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        Color.Transparent,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
-                        Color.Transparent,
-                    ),
-                ),
-            ),
-    )
 }
 
 /** Small circular indicator dot (used by the onboarding pager). */
@@ -255,7 +229,3 @@ fun PagerDot(active: Boolean, modifier: Modifier = Modifier) {
             ),
     )
 }
-
-/** Interaction source helper so ripple is suppressed on custom surfaces. */
-@Composable
-fun rememberNoRipple(): MutableInteractionSource = remember { MutableInteractionSource() }

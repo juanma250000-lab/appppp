@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mision.app.domain.model.AppSettings
 import com.mision.app.presentation.LocalAppContainer
 import com.mision.app.presentation.components.AnimatedPet
 import com.mision.app.presentation.components.CelebrationDialog
@@ -69,8 +68,6 @@ fun HomeScreen(
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val celebration by viewModel.celebration.collectAsStateWithLifecycle()
-    val settings by container.settingsRepository.settings
-        .collectAsStateWithLifecycle(initialValue = AppSettings())
     val haptics = LocalHapticFeedback.current
 
     LaunchedEffect(Unit) { viewModel.refresh() }
@@ -85,6 +82,7 @@ fun HomeScreen(
                 viewModel.dismissCelebration()
             },
             confirmLabel = "¡Seguimos!",
+            details = dialog.details,
         )
     }
 
@@ -109,7 +107,6 @@ fun HomeScreen(
             petName = state.pet.name,
             speech = state.speech,
             pet = state.pet,
-            animate = settings.animationsEnabled,
             onClick = onOpenPet,
         )
 
@@ -237,7 +234,6 @@ private fun PetHero(
     petName: String,
     speech: String,
     pet: com.mision.app.domain.model.Pet,
-    animate: Boolean,
     onClick: () -> Unit,
 ) {
     TintedGlassSurface(
@@ -251,7 +247,6 @@ private fun PetHero(
             AnimatedPet(
                 pet = pet,
                 size = 150.dp,
-                animate = animate,
             )
             PetSpeechBubble(
                 text = speech,

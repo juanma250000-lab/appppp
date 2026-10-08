@@ -58,9 +58,6 @@ class PetViewModel(
         initialValue = PetUiState(),
     )
 
-    init {
-        viewModelScope.launch { runCatching { useCases.updatePetMood() } }
-    }
 
     fun interact(action: PetAction) {
         if (_busy.value) return
@@ -75,6 +72,7 @@ class PetViewModel(
         }
     }
 
+    /** Recomputes the mood from recent activity; called whenever the screen is shown. */
     fun refreshMood() {
         viewModelScope.launch { runCatching { useCases.updatePetMood() } }
     }
@@ -86,9 +84,9 @@ class PetViewModel(
     private fun defaultSpeech(pet: Pet): String {
         val inactiveDays = (epochDay - pet.lastInteractionEpochDay).coerceAtLeast(0)
         return when {
-            inactiveDays >= 6 -> "Me he extrañado de ti. ¡Qué bueno verte!"
+            inactiveDays >= 6 -> "¡Te he echado de menos! Qué alegría verte."
             pet.energy <= 25 -> "Estoy un poco cansado. ¿Me dejas descansar?"
-            pet.happiness >= 75 -> "¡Estoy de enhorabuena! Tú eres el mejor."
+            pet.happiness >= 75 -> "¡Estoy feliz! Formamos un gran equipo."
             else -> PetSpeechProvider.motivationalLine(pet.happiness + epochDay)
         }
     }

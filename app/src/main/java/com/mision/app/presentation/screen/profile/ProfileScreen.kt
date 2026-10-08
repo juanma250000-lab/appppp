@@ -12,6 +12,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,9 @@ fun ProfileScreen(onOpenSettings: () -> Unit) {
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Stats change while the user is on other tabs, so reload on every visit.
+    LaunchedEffect(Unit) { viewModel.refresh() }
 
     state.infoMessage?.let { message ->
         ConfirmDialog(
@@ -187,7 +191,7 @@ fun ProfileScreen(onOpenSettings: () -> Unit) {
                         StatTile(
                             emoji = "🌟",
                             label = "Días perfectos",
-                            value = stats.streak.totalActiveDays.toString(),
+                            value = state.achievementStats.perfectDays.toString(),
                             gradient = AppGradients.celebrate,
                             modifier = Modifier.weight(1f),
                         )

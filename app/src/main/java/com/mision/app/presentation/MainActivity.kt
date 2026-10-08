@@ -39,7 +39,10 @@ class MainActivity : ComponentActivity() {
                 darkTheme = darkTheme,
                 dynamicColor = settings.dynamicColor,
             ) {
-                CompositionLocalProvider(LocalAppContainer provides container) {
+                CompositionLocalProvider(
+                    LocalAppContainer provides container,
+                    LocalAnimationsEnabled provides settings.animationsEnabled,
+                ) {
                     MisionAppRoot(container = container)
                 }
             }

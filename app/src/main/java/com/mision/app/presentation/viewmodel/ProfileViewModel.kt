@@ -81,10 +81,8 @@ class ProfileViewModel(
         initialValue = ProfileUiState(),
     )
 
-    init {
-        refresh()
-    }
 
+    /** Reloads statistics and achievements; called whenever the screen is shown. */
     fun refresh() {
         viewModelScope.launch {
             runCatching {

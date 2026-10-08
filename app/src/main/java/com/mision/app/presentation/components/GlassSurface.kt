@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -68,7 +69,16 @@ fun GlassSurface(
 ) {
     Box(
         modifier = modifier
-            .shadow(elevation = elevation, shape = shape, clip = false)
+            // Android renders the shadow under the whole surface; with a
+            // translucent fill it shows through as a hard-edged inner
+            // rectangle. Softer shadow colours keep the lift without it.
+            .shadow(
+                elevation = elevation,
+                shape = shape,
+                clip = false,
+                ambientColor = GlassShadowAmbient,
+                spotColor = GlassShadowSpot,
+            )
             .background(fillBrush, shape)
             .border(Dimens.GlassBorder, borderBrush, shape)
             .clip(shape)
@@ -122,6 +132,36 @@ fun TintedGlassSurface(
         content = content,
     )
 }
+
+/**
+ * Panel for dialogs. A dialog floats over busy content, so it uses a nearly
+ * opaque fill (still with the glass border and highlight) to keep its text
+ * readable, and a capped width so it does not stretch on tablets.
+ */
+@Composable
+fun GlassDialogSurface(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(Dimens.SpaceLg),
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val surface = MaterialTheme.colorScheme.surface
+    GlassSurface(
+        modifier = modifier.widthIn(max = Dimens.DialogMaxWidth),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(Dimens.RadiusLg),
+        elevation = Dimens.GlassElevationHigh,
+        fillBrush = Brush.verticalGradient(
+            listOf(
+                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.97f),
+                surface.copy(alpha = 0.97f),
+            ),
+        ),
+        contentPadding = contentPadding,
+        content = content,
+    )
+}
+
+private val GlassShadowAmbient = Color.Black.copy(alpha = 0.10f)
+private val GlassShadowSpot = Color.Black.copy(alpha = 0.18f)
 
 /** Parses "#RRGGBB" swatches used by the shop catalogue. */
 fun parseHexColor(hex: String, fallback: Color): Color = runCatching {

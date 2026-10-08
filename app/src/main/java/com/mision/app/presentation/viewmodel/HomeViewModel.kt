@@ -106,16 +106,6 @@ class HomeViewModel(
         initialValue = HomeUiState(),
     )
 
-    init {
-        viewModelScope.launch {
-            runCatching {
-                useCases.ensureDailyMissions()
-                useCases.calculateStreak()
-                useCases.updatePetMood()
-            }
-        }
-    }
-
     /** Completes or reverts a mission and raises the proper celebration. */
     fun onToggleMission(mission: Mission) {
         if (_isBusy.value) return
@@ -139,7 +129,10 @@ class HomeViewModel(
         _celebration.value = null
     }
 
-    /** Re-syncs the day when the app returns to the foreground. */
+    /**
+     * Re-syncs the day (daily missions, streak, pet mood). The screen calls it
+     * every time it is shown, which also covers the first load.
+     */
     fun refresh() {
         viewModelScope.launch {
             runCatching {

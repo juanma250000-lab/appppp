@@ -97,7 +97,10 @@ class MissionsViewModel(
         initialValue = MissionsUiState(),
     )
 
-    init {
+    private val _isBusy = MutableStateFlow(false)
+
+    /** Makes sure today's missions exist; called whenever the screen is shown. */
+    fun refresh() {
         viewModelScope.launch { runCatching { useCases.ensureDailyMissions() } }
     }
 
@@ -120,13 +123,20 @@ class MissionsViewModel(
 
     // ---- Completion ------------------------------------------------------
     fun onToggleMission(mission: Mission) {
+        // Same guard as the home screen: a fast double tap must not toggle twice.
+        if (_isBusy.value) return
         viewModelScope.launch {
-            if (mission.isCompleted) {
-                useCases.uncompleteMission(mission.id)
-            } else {
-                val result = useCases.completeMission(mission.id) ?: return@launch
-                celebrationDispatcher.dispatch(result)
-                _completion.value = result.toCelebrationUi()
+            _isBusy.value = true
+            try {
+                if (mission.isCompleted) {
+                    useCases.uncompleteMission(mission.id)
+                } else {
+                    val result = useCases.completeMission(mission.id) ?: return@launch
+                    celebrationDispatcher.dispatch(result)
+                    _completion.value = result.toCelebrationUi()
+                }
+            } finally {
+                _isBusy.value = false
             }
         }
     }

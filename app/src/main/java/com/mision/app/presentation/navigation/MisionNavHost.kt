@@ -7,7 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,8 +35,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -99,7 +98,9 @@ private fun MisionNavHost(startDestination: String) {
 
     val navBarInset: Dp =
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val reservedBottom = Dimens.BottomBarHeight + Dimens.Space2xl + navBarInset
+    // MisionScreen already pads for the system navigation bar; this only
+    // reserves room for the floating bar itself.
+    val reservedBottom = Dimens.BottomBarHeight + Dimens.Space2xl
 
     Box(modifier = Modifier.fillMaxSize()) {
         CompositionLocalProvider(
@@ -196,6 +197,7 @@ private fun MisionBottomBar(
 ) {
     GlassSurface(
         modifier = Modifier
+            .widthIn(max = Dimens.BottomBarMaxWidth)
             .padding(horizontal = Dimens.ScreenHorizontalPadding)
             .padding(bottom = Dimens.SpaceMd + navBarInset),
         shape = RoundedCornerShape(Dimens.RadiusXl),
@@ -235,8 +237,7 @@ private fun BottomBarItem(
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(Dimens.RadiusSm))
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics { this.selected = selected }
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .padding(horizontal = Dimens.SpaceSm, vertical = Dimens.SpaceXs),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs),

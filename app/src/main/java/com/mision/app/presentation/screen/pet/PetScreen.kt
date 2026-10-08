@@ -2,11 +2,13 @@ package com.mision.app.presentation.screen.pet
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +48,8 @@ fun PetScreen(onOpenShop: () -> Unit) {
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { viewModel.refreshMood() }
 
     state.infoMessage?.let { message ->
         ConfirmDialog(
@@ -117,7 +121,7 @@ fun PetScreen(onOpenShop: () -> Unit) {
 
         GlassCard {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
-                SectionHeader(title = "Cuidalo")
+                SectionHeader(title = "Cuídalo")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
@@ -128,12 +132,16 @@ fun PetScreen(onOpenShop: () -> Unit) {
                         style = GlassButtonStyle.TONAL,
                         modifier = Modifier.weight(1f),
                         height = Dimens.ButtonHeightCompact,
+                        enabled = !state.busy,
+                        contentPadding = PaddingValues(horizontal = Dimens.SpaceSm),
                     )
                     GlassButton(
                         text = PetAction.JUGAR.displayName,
                         onClick = { viewModel.interact(PetAction.JUGAR) },
                         modifier = Modifier.weight(1f),
                         height = Dimens.ButtonHeightCompact,
+                        enabled = !state.busy,
+                        contentPadding = PaddingValues(horizontal = Dimens.SpaceSm),
                     )
                     GlassButton(
                         text = PetAction.DESCANSAR.displayName,
@@ -141,6 +149,8 @@ fun PetScreen(onOpenShop: () -> Unit) {
                         style = GlassButtonStyle.TONAL,
                         modifier = Modifier.weight(1f),
                         height = Dimens.ButtonHeightCompact,
+                        enabled = !state.busy,
+                        contentPadding = PaddingValues(horizontal = Dimens.SpaceSm),
                     )
                 }
                 Text(

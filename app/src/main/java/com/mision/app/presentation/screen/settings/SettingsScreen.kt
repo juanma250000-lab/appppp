@@ -3,9 +3,12 @@ package com.mision.app.presentation.screen.settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,11 +18,13 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mision.app.domain.model.AppSettings
@@ -38,6 +43,7 @@ import com.mision.app.presentation.theme.Dimens
 import com.mision.app.presentation.viewmodel.SettingsViewModel
 
 /** Ajustes: appearance, sound, reminders, categories and the data reset. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val container = LocalAppContainer.current
@@ -48,13 +54,30 @@ fun SettingsScreen(onBack: () -> Unit) {
         ),
     )
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    var showResetDialog by remember { mutableIntStateOf(0) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var permissionDenied by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
         viewModel.markNotificationPermissionRequested()
+        permissionDenied = !granted
         if (granted) viewModel.setNotificationsEnabled(true)
+    }
+
+    // Reminders are only switched on once Android actually allows them;
+    // otherwise the toggle would show "on" while nothing can ever be posted.
+    val enableNotifications = {
+        val needsPermission = Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        if (needsPermission) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            permissionDenied = false
+            viewModel.setNotificationsEnabled(true)
+        }
     }
 
     MisionScreen(
@@ -66,9 +89,10 @@ fun SettingsScreen(onBack: () -> Unit) {
         GlassCard {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
                 SectionHeader(title = "Apariencia")
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
                 ) {
                     ThemeMode.entries.forEach { mode ->
                         GlassChip(
@@ -115,12 +139,17 @@ fun SettingsScreen(onBack: () -> Unit) {
                     subtitle = "Un aviso cada día para no perder tu racha.",
                     checked = settings.notificationsEnabled,
                     onCheckedChange = { enabled ->
-                        if (enabled && Build.VERSION.SDK_INT >= 33) {
-                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        viewModel.setNotificationsEnabled(enabled)
+                        if (enabled) enableNotifications() else viewModel.setNotificationsEnabled(false)
                     },
                 )
+                if (permissionDenied && !settings.notificationsEnabled) {
+                    Text(
+                        text = "Sin el permiso de notificaciones no podemos avisarte. " +
+                            "Puedes concederlo desde los ajustes del sistema.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 if (settings.notificationsEnabled) {
                     TimePickerRow(
                         hour = settings.reminderHour,
@@ -135,12 +164,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 } else {
                     GlassButton(
                         text = "Activar notificaciones",
-                        onClick = {
-                            if (Build.VERSION.SDK_INT >= 33) {
-                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                            viewModel.setNotificationsEnabled(true)
-                        },
+                        onClick = enableNotifications,
                         style = GlassButtonStyle.TONAL,
                         height = Dimens.ButtonHeightCompact,
                     )
@@ -157,24 +181,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(
+                // Wraps instead of squeezing: six labelled chips never fit on
+                // one phone-width row.
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
                 ) {
-                    MissionCategory.entries.take(3).forEach { category ->
-                        GlassChip(
-                            label = category.displayName,
-                            leadingEmoji = category.emoji,
-                            selected = category in settings.preferredCategories,
-                            onClick = { toggleCategory(settings, category, viewModel) },
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-                ) {
-                    MissionCategory.entries.drop(3).forEach { category ->
+                    MissionCategory.entries.forEach { category ->
                         GlassChip(
                             label = category.displayName,
                             leadingEmoji = category.emoji,
@@ -197,7 +211,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
                 GlassButton(
                     text = "Restablecer todo el progreso",
-                    onClick = { showResetDialog = 1 },
+                    onClick = { showResetDialog = true },
                     style = GlassButtonStyle.DESTRUCTIVE,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -212,17 +226,17 @@ fun SettingsScreen(onBack: () -> Unit) {
         )
     }
 
-    if (showResetDialog != 0) {
+    if (showResetDialog) {
         ConfirmDialog(
             title = "¿Restablecer todo el progreso?",
             message = "Se eliminarán tus misiones, experiencia, monedas, racha, logros y compras. Esta acción no se puede deshacer.",
             confirmLabel = "Sí, restablecer",
             destructive = true,
             onConfirm = {
-                showResetDialog = 0
+                showResetDialog = false
                 viewModel.resetProgress()
             },
-            onDismiss = { showResetDialog = 0 },
+            onDismiss = { showResetDialog = false },
             dismissLabel = "Cancelar",
         )
     }
