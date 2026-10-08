@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mision.app.core.time.SpanishLocale
 import com.mision.app.domain.model.Mission
 import com.mision.app.presentation.theme.AppGradients
 import com.mision.app.presentation.theme.Dimens
@@ -110,12 +111,31 @@ fun MissionCard(
                         )
                         CoinChip(text = mission.coinReward.toString())
                         if (mission.reminderEnabled) {
-                            Icon(
-                                imageVector = Icons.Filled.Notifications,
-                                contentDescription = "Recordatorio activado",
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(Dimens.IconSm),
+                            val time = String.format(
+                                SpanishLocale,
+                                "%02d:%02d",
+                                mission.reminderHour,
+                                mission.reminderMinute,
                             )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                modifier = Modifier.semantics(mergeDescendants = true) {
+                                    contentDescription = "Recordatorio a las $time"
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(Dimens.IconSm),
+                                )
+                                Text(
+                                    text = time,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
                         }
                     }
                 }

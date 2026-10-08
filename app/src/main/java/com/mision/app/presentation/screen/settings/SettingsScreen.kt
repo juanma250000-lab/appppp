@@ -28,7 +28,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mision.app.domain.model.AppSettings
-import com.mision.app.core.time.SpanishLocale
 import com.mision.app.domain.model.MissionCategory
 import com.mision.app.domain.model.ThemeMode
 import com.mision.app.presentation.LocalAppContainer
@@ -39,6 +38,7 @@ import com.mision.app.presentation.components.GlassCard
 import com.mision.app.presentation.components.GlassChip
 import com.mision.app.presentation.components.MisionScreen
 import com.mision.app.presentation.components.SectionHeader
+import com.mision.app.presentation.components.TimeStepper
 import com.mision.app.presentation.theme.Dimens
 import com.mision.app.presentation.viewmodel.SettingsViewModel
 
@@ -151,7 +151,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     )
                 }
                 if (settings.notificationsEnabled) {
-                    TimePickerRow(
+                    TimeStepper(
                         hour = settings.reminderHour,
                         minute = settings.reminderMinute,
                         onChange = viewModel::setReminderTime,
@@ -293,70 +293,5 @@ fun SwitchRow(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
             ),
         )
-    }
-}
-
-/** Hour (0-23) and minute (steps of 5) picker built from simple controls. */
-@Composable
-private fun TimePickerRow(
-    hour: Int,
-    minute: Int,
-    onChange: (Int, Int) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-        StepperRow(
-            label = "Hora",
-            value = String.format(SpanishLocale, "%02d", hour),
-            onDecrease = { onChange((hour - 1 + 24) % 24, minute) },
-            onIncrease = { onChange((hour + 1) % 24, minute) },
-        )
-        StepperRow(
-            label = "Minuto",
-            value = String.format(SpanishLocale, "%02d", minute),
-            onDecrease = { onChange(hour, (minute - 5 + 60) % 60) },
-            onIncrease = { onChange(hour, (minute + 5) % 60) },
-        )
-    }
-}
-
-@Composable
-private fun StepperRow(
-    label: String,
-    value: String,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GlassButton(
-                text = "−",
-                onClick = onDecrease,
-                style = GlassButtonStyle.TONAL,
-                height = Dimens.ButtonHeightCompact,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            GlassButton(
-                text = "+",
-                onClick = onIncrease,
-                style = GlassButtonStyle.TONAL,
-                height = Dimens.ButtonHeightCompact,
-            )
-        }
     }
 }

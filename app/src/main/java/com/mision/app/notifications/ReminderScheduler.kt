@@ -21,7 +21,16 @@ class ReminderScheduler(
     private val clock: ClockProvider = SystemClockProvider(),
 ) {
 
-    fun schedule(hour: Int, minute: Int, enabled: Boolean) {
+    /**
+     * @param policy REPLACE when settings change; the worker re-arming itself
+     * passes APPEND_OR_REPLACE, since REPLACE would cancel the running worker.
+     */
+    fun schedule(
+        hour: Int,
+        minute: Int,
+        enabled: Boolean,
+        policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE,
+    ) {
         val workManager = runCatching { WorkManager.getInstance(context) }.getOrNull() ?: return
         if (!enabled) {
             workManager.cancelUniqueWork(UNIQUE_WORK)
@@ -31,7 +40,7 @@ class ReminderScheduler(
             .setInitialDelay(delayMillisUntil(hour, minute), TimeUnit.MILLISECONDS)
             .addTag(TAG)
             .build()
-        workManager.enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.REPLACE, request)
+        workManager.enqueueUniqueWork(UNIQUE_WORK, policy, request)
     }
 
     fun cancel() {

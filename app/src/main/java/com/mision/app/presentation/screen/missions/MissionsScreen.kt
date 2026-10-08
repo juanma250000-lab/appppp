@@ -49,6 +49,7 @@ import com.mision.app.presentation.components.GradientProgressBar
 import com.mision.app.presentation.components.MisionScreen
 import com.mision.app.presentation.components.MissionCard
 import com.mision.app.presentation.components.SectionHeader
+import com.mision.app.presentation.components.TimeStepper
 import com.mision.app.presentation.celebrations.CelebrationDispatcher
 import com.mision.app.presentation.theme.AppGradients
 import com.mision.app.presentation.theme.Dimens
@@ -396,6 +397,22 @@ private fun MissionEditorSheet(
                     selected = editor.reminderEnabled,
                     onClick = { onReminder(!editor.reminderEnabled) },
                 )
+
+                if (editor.reminderEnabled) {
+                    TimeStepper(
+                        hour = editor.reminderHour,
+                        minute = editor.reminderMinute,
+                        onChange = onReminderTime,
+                    )
+                    Text(
+                        text = "Te avisaremos a las %02d:%02d si aún no la has completado. ".format(
+                            editor.reminderHour,
+                            editor.reminderMinute,
+                        ) + "Necesitas tener activados los recordatorios en Ajustes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

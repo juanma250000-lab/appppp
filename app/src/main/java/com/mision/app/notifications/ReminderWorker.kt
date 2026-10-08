@@ -2,6 +2,7 @@ package com.mision.app.notifications
 
 import android.content.Context
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkerParameters
 import com.mision.app.MisionApp
 import kotlinx.coroutines.flow.first
@@ -35,6 +36,7 @@ class ReminderWorker(
             hour = settings.reminderHour,
             minute = settings.reminderMinute,
             enabled = settings.notificationsEnabled,
+            policy = ExistingWorkPolicy.APPEND_OR_REPLACE,
         )
         return Result.success()
     }

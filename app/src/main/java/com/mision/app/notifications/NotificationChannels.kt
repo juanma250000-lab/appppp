@@ -16,10 +16,10 @@ object NotificationChannels {
         manager.createNotificationChannel(
             NotificationChannel(
                 REMINDERS,
-                "Recordatorios diarios",
+                "Recordatorios",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
-                description = "Avisos para que no pierdas tu racha"
+                description = "Aviso diario y recordatorios de tus misiones"
                 enableVibration(true)
             },
         )

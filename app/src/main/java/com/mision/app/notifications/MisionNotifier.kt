@@ -53,6 +53,19 @@ class MisionNotifier(private val context: Context) {
         )
     }
 
+    /** Reminder of a single mission at the time the user chose for it. */
+    fun showMissionReminder(templateId: String, title: String, xpReward: Int) {
+        val id = MISSION_REMINDER_BASE_ID + (templateId.hashCode() and 0x3FF)
+        val body = "Es el momento de tu misión. Complétala y gana +$xpReward XP."
+        notify(
+            builder = baseBuilder(NotificationChannels.REMINDERS, id)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body)),
+            id = id,
+        )
+    }
+
     fun showStreakMilestone(days: Int) {
         val id = 3000 + days
         val body = "Has desbloqueado una nueva recompensa por mantener tu racha."
@@ -103,6 +116,7 @@ class MisionNotifier(private val context: Context) {
 
     companion object {
         const val REMINDER_ID = 2000
+        private const val MISSION_REMINDER_BASE_ID = 6000
 
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", SpanishLocale)
 

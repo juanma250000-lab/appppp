@@ -20,6 +20,14 @@ data class MissionDraft(
     val isRecurring: Boolean = true,
 )
 
+/** An active mission with its own reminder time, ready to be scheduled. */
+data class MissionReminder(
+    val templateId: String,
+    val title: String,
+    val hour: Int,
+    val minute: Int,
+)
+
 /**
  * Contract for mission templates (blueprints) and their daily instances.
  *
@@ -56,4 +64,7 @@ interface MissionRepository {
     suspend fun countForDay(epochDay: Int): Pair<Int, Int>
 
     suspend fun pruneOldInstances(beforeEpochDay: Int)
+
+    /** Active missions whose reminder is switched on. */
+    suspend fun remindersToSchedule(): List<MissionReminder>
 }

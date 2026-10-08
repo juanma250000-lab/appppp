@@ -1,6 +1,7 @@
 package com.mision.app
 
 import android.app.Application
+import androidx.work.ExistingWorkPolicy
 import com.mision.app.notifications.NotificationChannels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,7 @@ class MisionApp : Application() {
     }
 
     /**
-     * Re-arms the daily reminder with the settings already on disk.
+     * Re-arms the daily reminder and the mission reminders with the data on disk.
      *
      * WorkManager survives process death and reboots, so this only matters on
      * a fresh install (or after clearing app data), where nothing is queued
@@ -47,7 +48,13 @@ class MisionApp : Application() {
                     hour = settings.reminderHour,
                     minute = settings.reminderMinute,
                     enabled = settings.notificationsEnabled,
+                    // KEEP: the process may have been started to run this very
+                    // reminder; replacing it would postpone it to tomorrow.
+                    policy = ExistingWorkPolicy.KEEP,
                 )
+            }
+            runCatching {
+                container.missionReminderScheduler.syncAll(container.missionRepository, replaceExisting = false)
             }
         }
     }

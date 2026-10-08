@@ -14,6 +14,7 @@ import com.mision.app.domain.model.StreakState
 import com.mision.app.domain.model.UserProfile
 import com.mision.app.domain.repository.GamificationRepository
 import com.mision.app.domain.repository.MissionDraft
+import com.mision.app.domain.repository.MissionReminder
 import com.mision.app.domain.repository.MissionRepository
 import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
@@ -178,6 +179,11 @@ class FakeMissionRepository(initial: List<Mission> = emptyList()) : MissionRepos
     override suspend fun pruneOldInstances(beforeEpochDay: Int) {
         missions.removeAll { it.dueEpochDay < beforeEpochDay }
     }
+
+    override suspend fun remindersToSchedule(): List<MissionReminder> =
+        missions.filter { it.reminderEnabled }
+            .distinctBy { it.templateId }
+            .map { MissionReminder(it.templateId, it.title, it.reminderHour, it.reminderMinute) }
 }
 
 class FakeProgressRepository(

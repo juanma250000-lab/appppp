@@ -19,6 +19,7 @@ import com.mision.app.domain.repository.SettingsRepository
 import com.mision.app.domain.repository.ShopRepository
 import com.mision.app.domain.usecase.UseCases
 import com.mision.app.notifications.MisionNotifier
+import com.mision.app.notifications.MissionReminderScheduler
 import com.mision.app.notifications.ReminderScheduler
 
 /**
@@ -46,8 +47,16 @@ class AppContainer(context: Context) {
         SettingsRepositoryImpl(dataStore, reminderScheduler)
     }
 
+    val missionReminderScheduler: MissionReminderScheduler by lazy {
+        MissionReminderScheduler(appContext, reminderScheduler)
+    }
+
     val missionRepository: MissionRepository by lazy {
-        MissionRepositoryImpl(database.missionDao(), clock)
+        MissionRepositoryImpl(
+            dao = database.missionDao(),
+            clock = clock,
+            onRemindersChanged = { missionReminderScheduler.syncAll(missionRepository) },
+        )
     }
 
     val progressRepository: ProgressRepository by lazy {

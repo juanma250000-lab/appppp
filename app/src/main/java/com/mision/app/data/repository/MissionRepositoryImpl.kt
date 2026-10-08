@@ -7,14 +7,20 @@ import com.mision.app.data.local.MissionInstanceEntity
 import com.mision.app.data.toMission
 import com.mision.app.domain.model.Mission
 import com.mision.app.domain.repository.MissionDraft
+import com.mision.app.domain.repository.MissionReminder
 import com.mision.app.domain.repository.MissionRepository
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
+/**
+ * @param onRemindersChanged called after any change that can add, move or
+ * remove a mission reminder, so the notification schedule follows the data.
+ */
 class MissionRepositoryImpl(
     private val dao: MissionDao,
     private val clock: ClockProvider,
+    private val onRemindersChanged: suspend () -> Unit = {},
 ) : MissionRepository {
 
     override fun observeMissionsForDay(epochDay: Int): Flow<List<Mission>> =
@@ -43,6 +49,8 @@ class MissionRepositoryImpl(
         if (templates.isEmpty()) {
             dao.upsertTemplates(SeedData.defaultTemplates(todayEpochDay))
             templates = dao.getTemplates()
+            // Some starter missions come with a reminder.
+            onRemindersChanged()
         }
 
         val existing = dao.getInstancesForDay(todayEpochDay).map { it.templateId }.toSet()
@@ -102,6 +110,7 @@ class MissionRepositoryImpl(
             createdAtEpochDay = todayEpochDay,
         )
         dao.insertInstance(instance)
+        if (template.reminderEnabled) onRemindersChanged()
         return template.toMission(instance)
     }
 
@@ -123,6 +132,7 @@ class MissionRepositoryImpl(
                 reminderMinute = draft.reminderMinute,
             ),
         )
+        onRemindersChanged()
         val today = clock.todayEpochDay()
         return getMission(instanceId(id, today))
     }
@@ -132,8 +142,14 @@ class MissionRepositoryImpl(
         if (!template.isCustom) return false
         dao.deleteInstancesForTemplate(id)
         dao.deleteTemplate(id)
+        if (template.reminderEnabled) onRemindersChanged()
         return true
     }
+
+    override suspend fun remindersToSchedule(): List<MissionReminder> =
+        dao.getTemplates()
+            .filter { it.isActive && it.reminderEnabled && it.reminderHour in 0..23 }
+            .map { MissionReminder(it.id, it.title, it.reminderHour, it.reminderMinute.coerceIn(0, 59)) }
 
     override suspend fun pendingCountToday(todayEpochDay: Int): Int {
         val total = dao.countInstancesOnDay(todayEpochDay)
