@@ -1,5 +1,6 @@
 package com.mision.app.presentation.celebrations
 
+import com.mision.app.core.text.plural
 import com.mision.app.domain.repository.SettingsRepository
 import com.mision.app.domain.usecase.MissionCompletionResult
 import com.mision.app.notifications.MisionNotifier
@@ -22,7 +23,7 @@ fun MissionCompletionResult.toCelebrationUi(): CelebrationUi {
     val milestoneEvent = milestone
     val details = buildList {
         if (bonusXp > 0) add("+$bonusXp XP extra")
-        if (bonusCoins > 0) add("+$bonusCoins monedas extra")
+        if (bonusCoins > 0) add("+${plural(bonusCoins, "moneda", "monedas")} extra")
         newAchievements.forEach { add("Logro: ${it.name}") }
         if (perfectDay && !leveledUp && milestoneEvent == null && newAchievements.isEmpty()) {
             add("Todas las misiones de hoy completadas")
@@ -61,7 +62,7 @@ fun MissionCompletionResult.toCelebrationUi(): CelebrationUi {
         else -> CelebrationUi(
             emoji = "✨",
             title = "¡Misión completada!",
-            message = "Has ganado $xpGained XP y $coinsGained monedas.",
+            message = "Has ganado $xpGained XP y ${plural(coinsGained, "moneda", "monedas")}.",
             details = details,
         )
     }

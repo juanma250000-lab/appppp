@@ -1,5 +1,6 @@
 package com.mision.app.presentation.screen.missions
 
+import com.mision.app.core.text.plural
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -136,7 +137,7 @@ fun MissionsScreen() {
                     } else if (state.completedCount >= state.totalToday) {
                         "¡Perfecto! Has completado todas las misiones."
                     } else {
-                        "Te quedan ${state.totalToday - state.completedCount} misiones."
+                        "Te quedan ${plural(state.totalToday - state.completedCount, "misión", "misiones")}."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

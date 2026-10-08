@@ -1,5 +1,6 @@
 package com.mision.app.notifications
 
+import com.mision.app.core.text.plural
 import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
@@ -127,7 +128,7 @@ class MisionNotifier(private val context: Context) {
             hour < 12 -> "Buenos días" to "Tu mascota te está esperando. Revisa tus misiones del día."
             hour in 12..18 && pendingMissions > 0 ->
                 "Todavía tienes misiones pendientes" to
-                    "Te quedan $pendingMissions misiones para cerrar el día."
+                    "Te quedan ${plural(pendingMissions, "misión", "misiones")} para cerrar el día."
             hour in 12..18 -> "¡Buen progreso!" to "Ya tienes todo al día. Descansa un poco."
             else -> "Completa tus misiones para mantener tu racha" to
                 "Te queda poco para cerrar el día. ¡Tú puedes!"

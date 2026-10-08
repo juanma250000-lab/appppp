@@ -1,5 +1,6 @@
 package com.mision.app.presentation.components
 
+import com.mision.app.core.text.plural
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -171,7 +172,7 @@ fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
             Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)) {
                 Text(
                     text = if (streak.isActive || streak.currentStreak > 0) {
-                        "${streak.currentStreak} días seguidos"
+                        plural(streak.currentStreak, "día seguido", "días seguidos")
                     } else {
                         "Empieza una racha hoy"
                     },
@@ -182,7 +183,8 @@ fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
                     text = when {
                         streak.currentStreak <= 0 ->
                             "Completa al menos una misión cada día para mantenerla."
-                        else -> "Récord: ${streak.longestStreak} días · Total: ${streak.totalActiveDays} días"
+                        else -> "Récord: ${plural(streak.longestStreak, "día", "días")} · " +
+                            "Total: ${plural(streak.totalActiveDays, "día", "días")}"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

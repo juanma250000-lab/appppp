@@ -115,7 +115,8 @@ fun XpIndicator(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = if (xpToNext <= 0) "Nivel máximo" else "$xpIntoLevel / $xpToNext XP",
+                    // xpToNext is what is still missing, so the level span is into + missing.
+                    text = if (xpToNext <= 0) "Nivel máximo" else "$xpIntoLevel / ${xpIntoLevel + xpToNext} XP",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

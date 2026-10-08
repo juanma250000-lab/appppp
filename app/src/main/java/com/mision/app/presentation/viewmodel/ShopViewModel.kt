@@ -1,5 +1,6 @@
 package com.mision.app.presentation.viewmodel
 
+import com.mision.app.core.text.plural
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
@@ -116,12 +117,12 @@ class ShopViewModel(
                     append("\n\nLogro desbloqueado: ${achievement.name} (+${achievement.rewardCoins} monedas).")
                 }
                 val bonus = purchase.newAchievements.sumOf { it.rewardCoins }
-                append("\n\nTe quedan ${result.remainingCoins + bonus} monedas.")
+                append("\n\nTe quedan ${plural(result.remainingCoins + bonus, "moneda", "monedas")}.")
             }
             is PurchaseResult.AlreadyOwned ->
                 "Ya tienes ${item.name}. Puedes equiparlo cuando quieras."
             is PurchaseResult.NotEnoughCoins ->
-                "Te faltan ${result.missing} monedas. Completa misiones para conseguir más."
+                "Te faltan ${plural(result.missing, "moneda", "monedas")}. Completa misiones para conseguir más."
             is PurchaseResult.UnknownItem ->
                 "Este artículo ya no está disponible."
         }
