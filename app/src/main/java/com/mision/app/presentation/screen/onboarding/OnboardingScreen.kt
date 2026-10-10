@@ -228,7 +228,7 @@ private fun StepContent(
         )
 
         OnboardingStep.INTRO_THREE -> IntroStep(
-            emoji = "🐾",
+            emoji = "☁️",
             title = "Una mascota que te acompaña",
             message = "Tu mascota vive de tu actividad: si completas misiones, estará feliz y crecerá contigo.",
             bullets = listOf(

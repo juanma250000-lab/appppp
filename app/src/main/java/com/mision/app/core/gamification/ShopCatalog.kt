@@ -34,8 +34,8 @@ object ShopCatalog {
         ShopItem("emote_wave", "Saludo", "Un saludo cada vez que entras.", CosmeticSlot.EMOTE, 100, "wave", "#4CC9F0"),
         ShopItem("emote_dance", "Baile feliz", "Baila con cada victoria.", CosmeticSlot.EMOTE, 180, "dance", "#9BE15D"),
         // Pieles
-        ShopItem("skin_gold", "Pelaje dorado", "Para perfiles que brillan.", CosmeticSlot.SKIN, 450, "gold", "#F5C542"),
-        ShopItem("skin_galaxy", "Galaxia", "Una pieza realmente especial.", CosmeticSlot.SKIN, 700, "galaxy", "#8E7BFF"),
+        ShopItem("skin_gold", "Nube dorada", "Un brillo de atardecer para perfiles que brillan.", CosmeticSlot.SKIN, 450, "gold", "#F5C542"),
+        ShopItem("skin_galaxy", "Galaxia", "Una nube de noche estrellada. Realmente especial.", CosmeticSlot.SKIN, 700, "galaxy", "#8E7BFF"),
     )
 
     fun byId(id: String): ShopItem? = items.firstOrNull { it.id == id }

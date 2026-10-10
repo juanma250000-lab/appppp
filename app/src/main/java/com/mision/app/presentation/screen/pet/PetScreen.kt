@@ -72,7 +72,13 @@ fun PetScreen(onOpenShop: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
             ) {
-                AnimatedPet(pet = state.pet, size = 210.dp)
+                AnimatedPet(
+                    pet = state.pet,
+                    size = 230.dp,
+                    interactive = true,
+                    // Hops whenever feeding, playing or resting succeeds.
+                    reactionKey = state.infoMessage,
+                )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
                     verticalAlignment = Alignment.CenterVertically,

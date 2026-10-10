@@ -3,7 +3,7 @@ package com.mision.app.presentation.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -23,7 +23,7 @@ sealed class Destination(
         Destination("misiones", "Misiones", "✅", Icons.Filled.CheckCircle)
 
     data object Pet :
-        Destination("mascota", "Mascota", "🐾", Icons.Filled.Pets)
+        Destination("mascota", "Mascota", "☁️", Icons.Filled.Cloud)
 
     data object Profile :
         Destination("perfil", "Perfil", "👤", Icons.Filled.Person)

@@ -1,5 +1,7 @@
 package com.mision.app.presentation.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -7,34 +9,40 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.mision.app.core.gamification.ShopCatalog
-import com.mision.app.domain.model.EquippedCosmetics
 import com.mision.app.domain.model.Pet
-import com.mision.app.domain.model.PetMood
 import com.mision.app.presentation.LocalAnimationsEnabled
 import com.mision.app.presentation.theme.Dimens
-import kotlin.math.sin
+import kotlinx.coroutines.launch
 
 /**
- * The virtual pet, drawn entirely with Compose primitives so it stays crisp at
- * any size and can wear every cosmetic from the shop.
+ * The mascot, Nube, drawn by [drawCloudMascot] so it stays crisp at any size
+ * and can wear every cosmetic from the shop.
  *
- * Idle animation (bob + blink) follows the "Animaciones" setting through
+ * Idle motion (floating, breathing, a slight turn and blinking) follows the
+ * "Animaciones" setting and the system "remove animations" preference through
  * [LocalAnimationsEnabled]; callers can still force it off with [animate].
+ * Without motion the cloud is drawn in its neutral pose, never hidden.
+ *
+ * @param interactive tapping the cloud makes it hop (only where that is the
+ * whole point, e.g. the pet stage).
+ * @param reactionKey every new non-null value plays the same hop, so screens
+ * can celebrate a successful action.
  */
 @Composable
 fun AnimatedPet(
@@ -43,405 +51,98 @@ fun AnimatedPet(
     size: Dp = 168.dp,
     animate: Boolean = LocalAnimationsEnabled.current,
     accessibilityLabel: String? = null,
+    interactive: Boolean = false,
+    reactionKey: Any? = null,
 ) {
     val label = accessibilityLabel
         ?: "Mascota ${pet.name}, ${pet.mood.displayName.lowercase()}"
-    val sized = modifier
-        .size(size)
-        .semantics { contentDescription = label }
+    val palette = remember(pet.equipped, pet.mood) { mascotPaletteFor(pet.equipped, pet.mood) }
+    val hop = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+
+    fun playHop() {
+        if (!animate) return
+        scope.launch {
+            hop.snapTo(0f)
+            hop.animateTo(1f, tween(durationMillis = 560, easing = FastOutSlowInEasing))
+            hop.snapTo(0f)
+        }
+    }
+
+    LaunchedEffect(reactionKey) {
+        if (reactionKey != null) playHop()
+    }
+
+    var sized = modifier.size(size)
+    sized = if (interactive) {
+        sized.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            role = Role.Button,
+            onClickLabel = "Hacer que ${pet.name} salte",
+        ) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            playHop()
+        }.semantics { contentDescription = label }
+    } else {
+        sized.semantics { contentDescription = label }
+    }
 
     if (!animate) {
-        // No infinite transition at all: a still pet costs a single draw.
-        StaticPet(pet = pet, modifier = sized)
+        // No infinite transition at all: a still cloud costs a single draw.
+        Canvas(modifier = sized) { drawCloudMascot(pet, palette) }
         return
     }
 
-    val transition = rememberInfiniteTransition(label = "petIdle")
-    val time by transition.animateFloat(
+    val transition = rememberInfiniteTransition(label = "nubeIdle")
+    val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 6.283185f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = Dimens.AnimPetIdle * 2, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "petTime",
+        label = "nubePhase",
     )
-    val blink by transition.animateFloat(
+    val blinkCycle by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3400, easing = LinearEasing),
+            animation = tween(durationMillis = 3600, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "petBlink",
+        label = "nubeBlink",
     )
 
     // Animated values are only read inside the draw lambda, so each frame
     // re-draws the canvas without recomposing.
     Canvas(modifier = sized) {
-        drawPet(
+        drawCloudMascot(
             pet = pet,
-            bobOffset = sin(time) * 4.dp.toPx(),
-            blink = blink > 0.94f,
-            celebrate = true,
-            phase = time,
+            palette = palette,
+            phase = phase,
+            blink = blinkAmount(blinkCycle),
+            hop = hop.value,
+            moving = true,
         )
     }
+}
+
+/** Eyelid closure for a point of the blink cycle: a quick close/open near its end. */
+internal fun blinkAmount(cycle: Float): Float {
+    val start = 0.93f
+    if (cycle < start) return 0f
+    val t = (cycle - start) / (1f - start)
+    return 1f - kotlin.math.abs(t * 2f - 1f)
 }
 
 /**
- * Motionless pet that fills the space it is given. Used where many pets are
- * on screen at once (shop previews) and when animations are disabled.
+ * Motionless mascot that fills the space it is given. Used where many are on
+ * screen at once (shop previews).
  */
 @Composable
 fun StaticPet(pet: Pet, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        drawPet(pet = pet, bobOffset = 0f, blink = false, celebrate = false, phase = 0f)
-    }
-}
-
-/** Equipped cosmetics are stored by item id; the renderer works with style ids. */
-private fun styleOf(itemId: String?): String? =
-    itemId?.let { ShopCatalog.byId(it)?.styleId }
-
-private fun DrawScope.drawPet(
-    pet: Pet,
-    bobOffset: Float,
-    blink: Boolean,
-    celebrate: Boolean,
-    phase: Float,
-) {
-    val w = size.width
-    val h = size.height
-    val cx = w / 2f
-    val bodyRadius = w * 0.30f
-    val bodyCy = h * 0.54f + bobOffset
-
-    // --- Ground shadow ----------------------------------------------------
-    drawOval(
-        color = Color.Black.copy(alpha = 0.16f),
-        topLeft = Offset(cx - bodyRadius * 0.85f, h * 0.86f),
-        size = Size(bodyRadius * 1.7f, bodyRadius * 0.28f),
-    )
-
-    // --- Background halo (Fondos) ----------------------------------------
-    val backgroundStyle = pet.equipped.background
-    if (backgroundStyle != null) {
-        val halo = parseHexColor(
-            ShopCatalog.byId(backgroundStyle)?.previewColorHex ?: "#4CC9F0",
-            Color(0xFF4CC9F0),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(halo.copy(alpha = 0.55f), halo.copy(alpha = 0f)),
-            ),
-            radius = w * 0.48f,
-            center = Offset(cx, bodyCy),
-        )
-    }
-
-    // --- Ears --------------------------------------------------------------
-    val palette = bodyPalette(pet.equipped)
-    val earRadius = bodyRadius * 0.42f
-    val earY = bodyCy - bodyRadius * 0.78f
-    drawCircle(color = palette[2], radius = earRadius, center = Offset(cx - bodyRadius * 0.72f, earY))
-    drawCircle(color = palette[2], radius = earRadius, center = Offset(cx + bodyRadius * 0.72f, earY))
-    drawCircle(color = palette[1], radius = earRadius * 0.55f, center = Offset(cx - bodyRadius * 0.72f, earY + earRadius * 0.18f))
-    drawCircle(color = palette[1], radius = earRadius * 0.55f, center = Offset(cx + bodyRadius * 0.72f, earY + earRadius * 0.18f))
-
-    // --- Body --------------------------------------------------------------
-    val pulse = if (celebrate && pet.mood == PetMood.CELEBRANDO) {
-        1f + sin(phase * 3f) * 0.02f
-    } else {
-        1f
-    }
-    val radius = bodyRadius * pulse
-    drawCircle(
-        brush = Brush.verticalGradient(
-            colors = listOf(palette[0], palette[1], palette[2]),
-            startY = bodyCy - radius,
-            endY = bodyCy + radius,
-        ),
-        radius = radius,
-        center = Offset(cx, bodyCy),
-    )
-    // Glossy highlight (the "glass" cue on the pet itself).
-    drawOval(
-        color = Color.White.copy(alpha = 0.22f),
-        topLeft = Offset(cx - radius * 0.55f, bodyCy - radius * 0.78f),
-        size = Size(radius * 0.75f, radius * 0.34f),
-    )
-
-    // --- Face --------------------------------------------------------------
-    val eyeColor = Color(0xFF241A3D)
-    val eyeOffsetX = radius * 0.36f
-    val eyeY = bodyCy - radius * 0.10f
-    val eyeRadius = radius * 0.145f
-    val eyeHeight = if (blink) eyeRadius * 0.16f else eyeRadius * 2f
-    listOf(-1f, 1f).forEach { side ->
-        drawOval(
-            color = eyeColor,
-            topLeft = Offset(cx + side * eyeOffsetX - eyeRadius, eyeY - eyeHeight / 2f),
-            size = Size(eyeRadius * 2f, eyeHeight),
-        )
-    }
-    if (!blink) {
-        listOf(-1f, 1f).forEach { side ->
-            drawCircle(
-                color = Color.White,
-                radius = eyeRadius * 0.32f,
-                center = Offset(cx + side * eyeOffsetX + eyeRadius * 0.3f, eyeY - eyeRadius * 0.35f),
-            )
-        }
-    }
-
-    // Cheeks.
-    val cheek = Color(0xFFFF8FA3).copy(alpha = 0.45f)
-    drawCircle(color = cheek, radius = radius * 0.12f, center = Offset(cx - radius * 0.55f, eyeY + radius * 0.30f))
-    drawCircle(color = cheek, radius = radius * 0.12f, center = Offset(cx + radius * 0.55f, eyeY + radius * 0.30f))
-
-    // Mouth.
-    val mouthWidth = radius * 0.52f
-    val mouthHeight = radius * 0.34f
-    val mouthTop = eyeY + radius * 0.34f
-    when (pet.mood) {
-        PetMood.CELEBRANDO -> drawOval(
-            color = eyeColor,
-            topLeft = Offset(cx - mouthWidth / 2f, mouthTop),
-            size = Size(mouthWidth, mouthHeight),
-        )
-        PetMood.TRISTE, PetMood.CANSADO -> drawArc(
-            color = eyeColor,
-            startAngle = 200f,
-            sweepAngle = 140f,
-            useCenter = false,
-            topLeft = Offset(cx - mouthWidth / 2f, mouthTop - mouthHeight / 2f),
-            size = Size(mouthWidth, mouthHeight),
-            style = Stroke(width = radius * 0.07f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
-        )
-        else -> drawArc(
-            color = eyeColor,
-            startAngle = 20f,
-            sweepAngle = 140f,
-            useCenter = false,
-            topLeft = Offset(cx - mouthWidth / 2f, mouthTop - mouthHeight / 2f),
-            size = Size(mouthWidth, mouthHeight),
-            style = Stroke(width = radius * 0.07f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
-        )
-    }
-
-    // --- Cosmetics ---------------------------------------------------------
-    styleOf(pet.equipped.skin)?.let { drawSkinPattern(it, cx, bodyCy, radius) }
-    styleOf(pet.equipped.hat)?.let { drawHat(it, cx, bodyCy, radius, palette) }
-    styleOf(pet.equipped.accessory)?.let { drawAccessory(it, cx, eyeY, radius) }
-    styleOf(pet.equipped.emote)?.let { drawEmote(it, cx, bodyCy, radius, palette, phase) }
-    styleOf(pet.equipped.effect)?.let { drawEffect(it, cx, bodyCy, radius, phase) }
-}
-
-/** Subtle surface detail so skins read as more than a recolour. */
-private fun DrawScope.drawSkinPattern(styleId: String, cx: Float, bodyCy: Float, radius: Float) {
-    when (styleId) {
-        "galaxy" -> {
-            val specks = listOf(
-                -0.50f to -0.48f, 0.46f to -0.55f, -0.80f to 0.10f,
-                0.80f to 0.22f, -0.32f to 0.80f, 0.38f to 0.78f,
-            )
-            specks.forEachIndexed { index, (dx, dy) ->
-                drawCircle(
-                    color = Color.White.copy(alpha = if (index % 2 == 0) 0.85f else 0.55f),
-                    radius = radius * (if (index % 2 == 0) 0.045f else 0.03f),
-                    center = Offset(cx + dx * radius, bodyCy + dy * radius),
-                )
-            }
-        }
-        "gold" -> drawArc(
-            color = Color.White.copy(alpha = 0.35f),
-            startAngle = 200f,
-            sweepAngle = 70f,
-            useCenter = false,
-            topLeft = Offset(cx - radius * 0.82f, bodyCy - radius * 0.82f),
-            size = Size(radius * 1.64f, radius * 1.64f),
-            style = Stroke(width = radius * 0.06f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
-        )
-        else -> Unit
-    }
-}
-
-/** Emotes: a raised paw for the wave, floating notes for the dance. */
-private fun DrawScope.drawEmote(
-    styleId: String,
-    cx: Float,
-    bodyCy: Float,
-    radius: Float,
-    palette: List<Color>,
-    phase: Float,
-) {
-    when (styleId) {
-        "wave" -> {
-            val swing = sin(phase * 2f) * radius * 0.08f
-            val paw = Offset(cx + radius * 1.02f + swing, bodyCy - radius * 0.38f)
-            drawCircle(color = palette[2], radius = radius * 0.22f, center = paw)
-            drawCircle(color = palette[0], radius = radius * 0.12f, center = paw)
-            val motion = Stroke(width = radius * 0.045f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            listOf(0.36f, 0.50f).forEach { r ->
-                drawArc(
-                    color = palette[1].copy(alpha = 0.7f),
-                    startAngle = -60f,
-                    sweepAngle = 70f,
-                    useCenter = false,
-                    topLeft = Offset(paw.x - radius * r, paw.y - radius * r),
-                    size = Size(radius * r * 2f, radius * r * 2f),
-                    style = motion,
-                )
-            }
-        }
-        "dance" -> {
-            val note = Color(0xFFFF7BAC)
-            val lift = sin(phase * 2f) * radius * 0.06f
-            listOf(-1f to 0f, 1f to 0.18f).forEach { (side, drop) ->
-                val head = Offset(cx + side * radius * 1.22f, bodyCy - radius * (1.15f - drop) + lift * side)
-                drawOval(
-                    color = note,
-                    topLeft = Offset(head.x - radius * 0.11f, head.y - radius * 0.08f),
-                    size = Size(radius * 0.22f, radius * 0.16f),
-                )
-                drawLine(
-                    color = note,
-                    start = Offset(head.x + radius * 0.10f, head.y),
-                    end = Offset(head.x + radius * 0.10f, head.y - radius * 0.38f),
-                    strokeWidth = radius * 0.045f,
-                )
-                drawLine(
-                    color = note,
-                    start = Offset(head.x + radius * 0.10f, head.y - radius * 0.38f),
-                    end = Offset(head.x + radius * 0.24f, head.y - radius * 0.28f),
-                    strokeWidth = radius * 0.045f,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                )
-            }
-        }
-        else -> Unit
-    }
-}
-
-private fun bodyPalette(equipped: EquippedCosmetics): List<Color> {
-    val colorHex = equipped.color?.let { ShopCatalog.byId(it)?.previewColorHex }
-    val skinHex = equipped.skin?.let { ShopCatalog.byId(it)?.previewColorHex }
-    val picked = parseHexColor(
-        colorHex ?: skinHex ?: "#8E7BFF",
-        Color(0xFF8E7BFF),
-    )
-    // The galaxy skin shares the default hue, so it gets a deeper night tone
-    // (unless a colour item overrides the body colour).
-    val galaxy = colorHex == null && styleOf(equipped.skin) == "galaxy"
-    val base = if (galaxy) mix(picked, Color(0xFF1B1446), 0.45f) else picked
-    val light = mix(base, Color.White, 0.35f)
-    val dark = mix(base, Color(0xFF2A1F66), 0.35f)
-    return listOf(light, base, dark)
-}
-
-private fun mix(a: Color, b: Color, amount: Float): Color = Color(
-    red = a.red + (b.red - a.red) * amount,
-    green = a.green + (b.green - a.green) * amount,
-    blue = a.blue + (b.blue - a.blue) * amount,
-    alpha = a.alpha,
-)
-
-private fun DrawScope.drawHat(styleId: String, cx: Float, bodyCy: Float, radius: Float, palette: List<Color>) {
-    val top = bodyCy - radius
-    when (styleId) {
-        "party" -> {
-            val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(cx - radius * 0.45f, top + radius * 0.16f)
-                lineTo(cx, top - radius * 0.75f)
-                lineTo(cx + radius * 0.45f, top + radius * 0.16f)
-                close()
-            }
-            drawPath(path, color = Color(0xFFFF7BAC))
-            drawCircle(color = Color(0xFFFFE27A), radius = radius * 0.13f, center = Offset(cx, top - radius * 0.78f))
-        }
-        "astro" -> {
-            drawArc(
-                color = Color(0xFF6C5CE7),
-                startAngle = 180f,
-                sweepAngle = 180f,
-                useCenter = true,
-                topLeft = Offset(cx - radius * 0.55f, top - radius * 0.32f),
-                size = Size(radius * 1.1f, radius * 0.75f),
-            )
-            drawOval(
-                color = Color(0xFFCFEAFF).copy(alpha = 0.85f),
-                topLeft = Offset(cx - radius * 0.32f, top - radius * 0.18f),
-                size = Size(radius * 0.64f, radius * 0.30f),
-            )
-        }
-        "crown" -> {
-            val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(cx - radius * 0.52f, top + radius * 0.14f)
-                lineTo(cx - radius * 0.52f, top - radius * 0.42f)
-                lineTo(cx - radius * 0.24f, top - radius * 0.12f)
-                lineTo(cx, top - radius * 0.52f)
-                lineTo(cx + radius * 0.24f, top - radius * 0.12f)
-                lineTo(cx + radius * 0.52f, top - radius * 0.42f)
-                lineTo(cx + radius * 0.52f, top + radius * 0.14f)
-                close()
-            }
-            drawPath(path, color = Color(0xFFF5C542))
-            drawPath(path, color = Color(0x55FFFFFF), style = Stroke(width = radius * 0.05f))
-        }
-        else -> drawRect(
-            color = palette[1],
-            topLeft = Offset(cx - radius * 0.5f, top - radius * 0.05f),
-            size = Size(radius, radius * 0.25f),
-        )
-    }
-}
-
-private fun DrawScope.drawAccessory(styleId: String, cx: Float, eyeY: Float, radius: Float) {
-    when (styleId) {
-        "glasses" -> {
-            val lensRadius = radius * 0.24f
-            val offset = radius * 0.36f
-            val stroke = Stroke(width = radius * 0.06f)
-            drawCircle(Color(0xFF2B2D42), lensRadius, Offset(cx - offset, eyeY), style = stroke)
-            drawCircle(Color(0xFF2B2D42), lensRadius, Offset(cx + offset, eyeY), style = stroke)
-            drawLine(
-                color = Color(0xFF2B2D42),
-                start = Offset(cx - offset + lensRadius, eyeY),
-                end = Offset(cx + offset - lensRadius, eyeY),
-                strokeWidth = radius * 0.06f,
-            )
-        }
-        "scarf" -> drawOval(
-            color = Color(0xFFE5477E),
-            topLeft = Offset(cx - radius * 0.55f, eyeY + radius * 0.78f),
-            size = Size(radius * 1.1f, radius * 0.34f),
-        )
-        else -> Unit
-    }
-}
-
-private fun DrawScope.drawEffect(styleId: String, cx: Float, bodyCy: Float, radius: Float, phase: Float) {
-    for (i in 0 until 5) {
-        val angle = phase / 2f + i * (6.283185f / 5f)
-        val px = cx + kotlin.math.cos(angle) * radius * 1.18f
-        val py = bodyCy + kotlin.math.sin(angle) * radius * 1.10f
-        val sparkle = radius * 0.14f
-        if (styleId == "hearts") {
-            val heart = Color(0xFFFF7BAC)
-            drawCircle(heart, sparkle * 0.45f, Offset(px - sparkle * 0.35f, py))
-            drawCircle(heart, sparkle * 0.45f, Offset(px + sparkle * 0.35f, py))
-            val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(px - sparkle * 0.78f, py + sparkle * 0.12f)
-                lineTo(px + sparkle * 0.78f, py + sparkle * 0.12f)
-                lineTo(px, py + sparkle * 1.0f)
-                close()
-            }
-            drawPath(path, color = heart)
-        } else {
-            val star = Color(0xFFFFE27A)
-            drawLine(star, Offset(px - sparkle, py), Offset(px + sparkle, py), strokeWidth = radius * 0.05f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(star, Offset(px, py - sparkle), Offset(px, py + sparkle), strokeWidth = radius * 0.05f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        }
-    }
+    val palette = remember(pet.equipped, pet.mood) { mascotPaletteFor(pet.equipped, pet.mood) }
+    Canvas(modifier = modifier) { drawCloudMascot(pet, palette) }
 }

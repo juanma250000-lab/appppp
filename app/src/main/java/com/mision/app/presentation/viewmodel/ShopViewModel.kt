@@ -7,8 +7,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.domain.model.CosmeticSlot
+import com.mision.app.domain.model.EquippedCosmetics
+import com.mision.app.domain.model.Pet
 import com.mision.app.domain.model.PurchaseResult
 import com.mision.app.domain.model.ShopItem
+import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
 import com.mision.app.domain.repository.ShopRepository
 import com.mision.app.domain.usecase.EquipResult
@@ -26,6 +29,11 @@ data class ShopUiState(
     val items: List<ShopItem> = emptyList(),
     val ownedIds: Set<String> = emptySet(),
     val equippedIds: Set<String> = emptySet(),
+    val equipped: EquippedCosmetics = EquippedCosmetics(),
+    /** The real mascot, so previews show items over what it already wears. */
+    val pet: Pet? = null,
+    /** Item open in the preview / purchase confirmation sheet. */
+    val previewItemId: String? = null,
     val coins: Int = 0,
     val selectedSlot: CosmeticSlot? = null,
 ) {
@@ -41,6 +49,17 @@ data class ShopUiState(
     fun isOwned(item: ShopItem): Boolean = item.id in ownedIds
     fun isEquipped(item: ShopItem): Boolean = item.id in equippedIds
     fun canAfford(item: ShopItem): Boolean = coins >= item.cost
+
+    val previewItem: ShopItem? get() = previewItemId?.let { id -> items.firstOrNull { it.id == id } }
+
+    /**
+     * The mascot wearing [item] on top of its current look ('probador'). Only
+     * the slot of the item changes, exactly as equipping it would.
+     */
+    fun tryOn(item: ShopItem, fallbackName: String = "Nube"): Pet {
+        val base = pet ?: Pet.default(name = fallbackName, epochDay = 0)
+        return base.copy(equipped = equipped.with(item.category, item.id))
+    }
 }
 
 /** Tienda screen: catalogue, balances, filters and purchase rules. */
@@ -48,11 +67,13 @@ class ShopViewModel(
     private val useCases: UseCases,
     private val shopRepository: ShopRepository,
     private val progressRepository: ProgressRepository,
+    private val petRepository: PetRepository,
 ) : ViewModel() {
 
     private val _slot = MutableStateFlow<CosmeticSlot?>(null)
     private val _busyItemId = MutableStateFlow<String?>(null)
     private val _message = MutableStateFlow<String?>(null)
+    private val _previewItemId = MutableStateFlow<String?>(null)
 
     val message: StateFlow<String?> = _message
     val busyItemId: StateFlow<String?> = _busyItemId
@@ -69,9 +90,14 @@ class ShopViewModel(
             items = catalog,
             ownedIds = purchases,
             equippedIds = CosmeticSlot.entries.mapNotNull(equipped::idFor).toSet(),
+            equipped = equipped,
             coins = profile.coins,
             selectedSlot = slot,
         )
+    }.combine(petRepository.observePet()) { state, pet ->
+        state.copy(pet = pet)
+    }.combine(_previewItemId) { state, previewId ->
+        state.copy(previewItemId = previewId)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -86,9 +112,18 @@ class ShopViewModel(
         _message.value = null
     }
 
+    fun openPreview(item: ShopItem) {
+        _previewItemId.value = item.id
+    }
+
+    fun closePreview() {
+        _previewItemId.value = null
+    }
+
     /** Buys the item when possible; otherwise explains why it did not happen. */
     fun onItemAction(item: ShopItem) {
         if (_busyItemId.value != null) return
+        _previewItemId.value = null
         viewModelScope.launch {
             _busyItemId.value = item.id
             try {
@@ -132,12 +167,14 @@ class ShopViewModel(
             useCases: UseCases,
             shopRepository: ShopRepository,
             progressRepository: ProgressRepository,
+            petRepository: PetRepository,
         ) = viewModelFactory {
             initializer {
                 ShopViewModel(
                     useCases = useCases,
                     shopRepository = shopRepository,
                     progressRepository = progressRepository,
+                    petRepository = petRepository,
                 )
             }
         }

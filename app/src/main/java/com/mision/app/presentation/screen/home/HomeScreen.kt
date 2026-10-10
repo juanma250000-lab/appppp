@@ -3,11 +3,14 @@ package com.mision.app.presentation.screen.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -90,7 +93,8 @@ fun HomeScreen(
         title = if (state.greeting.isEmpty()) "Misión" else state.greeting,
         subtitle = state.dateLabel,
         actions = {
-            CoinPill(coins = state.profile.coins)
+            // No placeholder "0" while the saved progress is still loading.
+            if (!state.isLoading) CoinPill(coins = state.profile.coins)
             GlassIconButton(
                 imageVector = Icons.Filled.Storefront,
                 contentDescription = "Abrir la tienda",
@@ -103,6 +107,18 @@ fun HomeScreen(
             )
         },
     ) {
+        if (state.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Dimens.Space4xl),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(Dimens.IconXl))
+            }
+            return@MisionScreen
+        }
+
         PetHero(
             petName = state.pet.name,
             speech = state.speech,
@@ -246,7 +262,7 @@ private fun PetHero(
         ) {
             AnimatedPet(
                 pet = pet,
-                size = 150.dp,
+                size = 176.dp,
             )
             PetSpeechBubble(
                 text = speech,

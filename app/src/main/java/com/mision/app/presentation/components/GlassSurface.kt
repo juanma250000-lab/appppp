@@ -2,21 +2,29 @@ package com.mision.app.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.core.graphics.toColorInt
 import com.mision.app.presentation.theme.AppGradients
@@ -65,26 +73,54 @@ fun GlassSurface(
     fillBrush: Brush = glassFillBrush(),
     borderBrush: Brush = glassBorderBrush(),
     contentPadding: PaddingValues = PaddingValues(Dimens.SpaceLg),
+    onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    Box(
-        modifier = modifier
-            // Android renders the shadow under the whole surface; with a
-            // translucent fill it shows through as a hard-edged inner
-            // rectangle. Softer shadow colours keep the lift without it.
-            .shadow(
-                elevation = elevation,
-                shape = shape,
-                clip = false,
-                ambientColor = GlassShadowAmbient,
-                spotColor = GlassShadowSpot,
-            )
-            .background(fillBrush, shape)
-            .border(Dimens.GlassBorder, borderBrush, shape)
-            .clip(shape)
-            .padding(contentPadding),
-        content = content,
-    )
+    // The outer box takes the caller's size; its children get it as a minimum
+    // so the shadow layer and the surface always match exactly.
+    Box(modifier = modifier, propagateMinConstraints = true) {
+        // Android renders an elevation shadow under the whole surface, and a
+        // translucent fill let it show through as a hard-edged inner
+        // rectangle. The shadow lives on its own layer, clipped so it is only
+        // ever drawn outside the shape.
+        Spacer(
+            Modifier
+                .matchParentSize()
+                .drawWithCache {
+                    val outline = Path().apply {
+                        addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache))
+                    }
+                    onDrawWithContent {
+                        clipPath(outline, ClipOp.Difference) {
+                            this@onDrawWithContent.drawContent()
+                        }
+                    }
+                }
+                .shadow(
+                    elevation = elevation,
+                    shape = shape,
+                    clip = false,
+                    ambientColor = GlassShadowAmbient,
+                    spotColor = GlassShadowSpot,
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .background(fillBrush, shape)
+                .border(Dimens.GlassBorder, borderBrush, shape)
+                .clip(shape)
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(contentPadding),
+            content = content,
+        )
+    }
 }
 
 /** Convenience card variant with the standard screen padding. */
@@ -94,12 +130,16 @@ fun GlassCard(
     shape: Shape = androidx.compose.foundation.shape.RoundedCornerShape(Dimens.RadiusMd),
     elevation: Dp = Dimens.GlassElevation,
     contentPadding: PaddingValues = PaddingValues(Dimens.SpaceLg),
+    onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
     content: @Composable BoxScope.() -> Unit,
 ) = GlassSurface(
     modifier = modifier,
     shape = shape,
     elevation = elevation,
     contentPadding = contentPadding,
+    onClick = onClick,
+    onClickLabel = onClickLabel,
     content = content,
 )
 

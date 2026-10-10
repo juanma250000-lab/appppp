@@ -27,10 +27,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import com.mision.app.core.text.plural
 import com.mision.app.presentation.theme.AppGradients
 import com.mision.app.presentation.theme.CoinGold
 import com.mision.app.presentation.theme.Dimens
@@ -135,7 +137,10 @@ fun XpIndicator(
 @Composable
 fun CoinPill(coins: Int, modifier: Modifier = Modifier) {
     GlassPill(
-        modifier = modifier,
+        // Read as "115 monedas", not just a bare number.
+        modifier = modifier.clearAndSetSemantics {
+            contentDescription = plural(coins, "moneda", "monedas")
+        },
         background = Brush.horizontalGradient(AppGradients.coin),
         contentColor = Color(0xFF3A2A00),
     ) {

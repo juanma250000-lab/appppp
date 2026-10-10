@@ -2,6 +2,7 @@ package com.mision.app.testing
 
 import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.core.time.ClockProvider
+import com.mision.app.domain.model.AppSettings
 import com.mision.app.domain.model.DailyLog
 import com.mision.app.domain.model.EquippedCosmetics
 import com.mision.app.domain.model.Mission
@@ -11,6 +12,7 @@ import com.mision.app.domain.model.Pet
 import com.mision.app.domain.model.PurchaseResult
 import com.mision.app.domain.model.ShopItem
 import com.mision.app.domain.model.StreakState
+import com.mision.app.domain.model.ThemeMode
 import com.mision.app.domain.model.UserProfile
 import com.mision.app.domain.repository.GamificationRepository
 import com.mision.app.domain.repository.MissionDraft
@@ -18,6 +20,7 @@ import com.mision.app.domain.repository.MissionReminder
 import com.mision.app.domain.repository.MissionRepository
 import com.mision.app.domain.repository.PetRepository
 import com.mision.app.domain.repository.ProgressRepository
+import com.mision.app.domain.repository.SettingsRepository
 import com.mision.app.domain.repository.ShopRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -306,4 +309,23 @@ class FakeShopRepository : ShopRepository {
         currentCoins < item.cost -> PurchaseResult.NotEnoughCoins(item.cost - currentCoins)
         else -> PurchaseResult.Success(item, currentCoins - item.cost)
     }
+}
+
+/** In-memory settings; only what the use cases read is meaningful here. */
+class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRepository {
+    private val flow = MutableStateFlow(initial)
+
+    override val settings: Flow<AppSettings> = flow
+
+    override suspend fun setOnboardingCompleted(value: Boolean) = Unit
+    override suspend fun setThemeMode(mode: ThemeMode) = Unit
+    override suspend fun setDynamicColor(value: Boolean) = Unit
+    override suspend fun setNotificationsEnabled(value: Boolean) = Unit
+    override suspend fun setReminderTime(hour: Int, minute: Int) = Unit
+    override suspend fun setSoundEnabled(value: Boolean) = Unit
+    override suspend fun setAnimationsEnabled(value: Boolean) {
+        flow.value = flow.value.copy(animationsEnabled = value)
+    }
+    override suspend fun setPreferredCategories(categories: Set<MissionCategory>) = Unit
+    override suspend fun markNotificationPermissionRequested() = Unit
 }

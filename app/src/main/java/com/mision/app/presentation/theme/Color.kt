@@ -6,16 +6,16 @@ import androidx.compose.ui.graphics.Color
 /**
  * Brand palette for Misión.
  *
- * The identity is built around a deep violet/indigo core with aqua and rose
- * accents. Light and dark variants are intentionally designed instead of being
+ * The identity comes from Nube, the cloud mascot: the sky blue of its outline
+ * is the core colour, its pink cheeks the rose accent, with aqua as support. Light and dark variants are intentionally designed instead of being
  * an inversion of each other so the Liquid Glass surfaces keep their depth.
  */
 
 // ---- Light palette -------------------------------------------------------
-val VioletPrimary = Color(0xFF5B4BE0)
+val VioletPrimary = Color(0xFF2F64C8)
 val VioletOnPrimary = Color(0xFFFFFFFF)
-val VioletContainer = Color(0xFFE5E1FF)
-val OnVioletContainer = Color(0xFF180F52)
+val VioletContainer = Color(0xFFDCE7FF)
+val OnVioletContainer = Color(0xFF0A2257)
 
 val AquaSecondary = Color(0xFF00969A)
 val AquaContainer = Color(0xFFCFF7F6)
@@ -25,19 +25,19 @@ val RoseTertiary = Color(0xFFE5477E)
 val RoseContainer = Color(0xFFFFDCE9)
 val OnRoseContainer = Color(0xFF3E0021)
 
-val LightBackground = Color(0xFFF4F5FF)
-val LightSurface = Color(0xFFFBFBFF)
-val LightSurfaceHigh = Color(0xFFECEEFB)
-val LightSurfaceVariant = Color(0xFFE3E4F2)
-val OnLightSurface = Color(0xFF1A1B25)
-val OnLightSurfaceVariant = Color(0xFF464754)
-val LightOutline = Color(0xFF767786)
+val LightBackground = Color(0xFFF2F6FF)
+val LightSurface = Color(0xFFFAFCFF)
+val LightSurfaceHigh = Color(0xFFE9EFFB)
+val LightSurfaceVariant = Color(0xFFE0E7F4)
+val OnLightSurface = Color(0xFF172033)
+val OnLightSurfaceVariant = Color(0xFF434B5E)
+val LightOutline = Color(0xFF727B8F)
 
 // ---- Dark palette --------------------------------------------------------
-val DarkPrimary = Color(0xFFB3A8FF)
-val DarkOnPrimary = Color(0xFF241A76)
-val DarkPrimaryContainer = Color(0xFF3B2FA8)
-val DarkOnPrimaryContainer = Color(0xFFE5E1FF)
+val DarkPrimary = Color(0xFFA8C6FF)
+val DarkOnPrimary = Color(0xFF0B2A66)
+val DarkPrimaryContainer = Color(0xFF1F4A9A)
+val DarkOnPrimaryContainer = Color(0xFFDCE7FF)
 
 val DarkSecondary = Color(0xFF63E4E1)
 val DarkSecondaryContainer = Color(0xFF005052)
@@ -47,13 +47,13 @@ val DarkTertiary = Color(0xFFFFB1C9)
 val DarkTertiaryContainer = Color(0xFF8E1B4E)
 val DarkOnTertiaryContainer = Color(0xFFFFDCE9)
 
-val DarkBackground = Color(0xFF09081C)
-val DarkSurface = Color(0xFF111027)
-val DarkSurfaceHigh = Color(0xFF191834)
-val DarkSurfaceVariant = Color(0xFF232146)
-val OnDarkSurface = Color(0xFFECEBFF)
-val OnDarkSurfaceVariant = Color(0xFFB6B5D6)
-val DarkOutline = Color(0xFF807F9F)
+val DarkBackground = Color(0xFF070D1F)
+val DarkSurface = Color(0xFF0E1529)
+val DarkSurfaceHigh = Color(0xFF162038)
+val DarkSurfaceVariant = Color(0xFF1F2A47)
+val OnDarkSurface = Color(0xFFE8EEFF)
+val OnDarkSurfaceVariant = Color(0xFFB3BDD6)
+val DarkOutline = Color(0xFF7F89A3)
 
 // ---- Accent / feedback colors -------------------------------------------
 val SuccessGreen = Color(0xFF22B573)
@@ -69,22 +69,24 @@ val XpBlue = Color(0xFF4CC9F0)
  * the visual identity easy to tune without touching screen code.
  */
 object AppGradients {
-    /** Full screen backdrop: layered, soft and slightly asymmetric. */
+    /** Full screen backdrop: a soft daytime sky with a blush of Nube's cheeks. */
     val backdropLight = listOf(
-        Color(0xFFE7E4FF),
-        Color(0xFFF3F1FF),
-        Color(0xFFEAF6FF),
-        Color(0xFFFDEFF6),
+        Color(0xFFD9E8FF),
+        Color(0xFFEFF5FF),
+        Color(0xFFE6F3FF),
+        Color(0xFFFFEFF3),
     )
 
+    /** Night sky counterpart. */
     val backdropDark = listOf(
-        Color(0xFF0A0820),
-        Color(0xFF140E33),
-        Color(0xFF0A1030),
-        Color(0xFF1A0E2A),
+        Color(0xFF06112A),
+        Color(0xFF0B1A3C),
+        Color(0xFF08142F),
+        Color(0xFF140F30),
     )
 
-    val primary = listOf(Color(0xFF6C5CE7), Color(0xFF8E7BFF), Color(0xFF4CC9F0))
+    /** Sky gradient for primary actions; white text keeps 4.5:1 on every stop. */
+    val primary = listOf(Color(0xFF2E5DC0), Color(0xFF3468CC), Color(0xFF3A74D4))
     val xp = listOf(XpLime, XpBlue)
     val coin = listOf(Color(0xFFFFE27A), CoinGold, Color(0xFFE9A63A))
     val streak = listOf(Color(0xFFFFD166), StreakFlame, Color(0xFFF45B8A))

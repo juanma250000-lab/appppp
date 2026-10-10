@@ -1,36 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the geometry fitted to docs/mascota/nube-referencia.jpeg. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="1.0"
-        android:scaleY="1.0"
-        android:pivotX="54"
-        android:pivotY="54">
-        <!-- Body of the pet -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,34c11.6,0 21,9.4 21,21c0,12.9 -9.4,24 -21,24c-11.6,0 -21,-11.1 -21,-24C33,43.4 42.4,34 54,34z" />
-        <!-- Left eye -->
-        <path
-            android:fillColor="#1B1145"
-            android:pathData="M47,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
-        <!-- Right eye -->
-        <path
-            android:fillColor="#1B1145"
-            android:pathData="M61,53m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
-        <!-- Smile -->
-        <path
-            android:strokeColor="#1B1145"
-            android:strokeWidth="2.4"
-            android:strokeLineCap="round"
-            android:fillColor="#00000000"
-            android:pathData="M48,61.5c1.8,3 4,4.5 6,4.5c2,0 4.2,-1.5 6,-4.5" />
-        <!-- Sparkle -->
-        <path
-            android:fillColor="#8BE9FD"
-            android:pathData="M74,32l1.8,4.2L80,38l-4.2,1.8L74,44l-1.8,-4.2L68,38l4.2,-1.8z" />
+    <group android:scaleX="0.056" android:scaleY="0.056" android:translateX="20.40" android:translateY="21.97">
+        <path android:fillColor="#3A71B4" android:pathData="M332,453a269,275 0,1 0,538,0a269,275 0,1 0,-538,0zM382,422a245,245 0,1 0,490,0a245,245 0,1 0,-490,0zM162,480a161,161 0,1 0,322,0a161,161 0,1 0,-322,0zM761,504a144,144 0,1 0,288,0a144,144 0,1 0,-288,0zM60,680a211,211 0,1 0,422,0a211,211 0,1 0,-422,0zM736,683a203,203 0,1 0,406,0a203,203 0,1 0,-406,0zM262,749a220,220 0,1 0,440,0a220,220 0,1 0,-440,0zM516,710a241,241 0,1 0,482,0a241,241 0,1 0,-482,0z" />
+        <path android:fillColor="#BBD7F5" android:pathData="M350,453a251,257 0,1 0,502,0a251,257 0,1 0,-502,0zM400,422a227,227 0,1 0,454,0a227,227 0,1 0,-454,0zM180,480a143,143 0,1 0,286,0a143,143 0,1 0,-286,0zM779,504a126,126 0,1 0,252,0a126,126 0,1 0,-252,0zM78,680a193,193 0,1 0,386,0a193,193 0,1 0,-386,0zM754,683a185,185 0,1 0,370,0a185,185 0,1 0,-370,0zM280,749a202,202 0,1 0,404,0a202,202 0,1 0,-404,0zM534,710a223,223 0,1 0,446,0a223,223 0,1 0,-446,0z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M380,431a221,227 0,1 0,442,0a221,227 0,1 0,-442,0zM430,400a197,197 0,1 0,394,0a197,197 0,1 0,-394,0zM210,458a113,113 0,1 0,226,0a113,113 0,1 0,-226,0zM809,482a96,96 0,1 0,192,0a96,96 0,1 0,-192,0zM108,658a163,163 0,1 0,326,0a163,163 0,1 0,-326,0zM784,661a155,155 0,1 0,310,0a155,155 0,1 0,-310,0zM310,727a172,172 0,1 0,344,0a172,172 0,1 0,-344,0zM564,688a193,193 0,1 0,386,0a193,193 0,1 0,-386,0z" />
+        <path android:fillColor="#0B0B14" android:pathData="M362,569a65,70.5 0,1 0,130,0a65,70.5 0,1 0,-130,0zM685,570a65,70.5 0,1 0,130,0a65,70.5 0,1 0,-130,0z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M417,537a23,23 0,1 0,46,0a23,23 0,1 0,-46,0zM393,531a10,10 0,1 0,20,0a10,10 0,1 0,-20,0zM714,538a23,23 0,1 0,46,0a23,23 0,1 0,-46,0zM764,532a10,10 0,1 0,20,0a10,10 0,1 0,-20,0z" />
+        <path android:fillColor="#FF97A8" android:pathData="M261,655a62,62 0,1 0,124,0a62,62 0,1 0,-124,0zM788,655a62,62 0,1 0,124,0a62,62 0,1 0,-124,0z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M291,633a14,14 0,1 0,28,0a14,14 0,1 0,-28,0zM818,633a14,14 0,1 0,28,0a14,14 0,1 0,-28,0z" />
+        <path android:fillColor="#00000000" android:strokeColor="#2C1A18" android:strokeWidth="14" android:strokeLineCap="round" android:pathData="M542,603C548,662 630,662 636,603" />
     </group>
 </vector>
