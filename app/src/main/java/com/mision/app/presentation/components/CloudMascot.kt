@@ -4,9 +4,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -16,6 +20,8 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import com.mision.app.core.gamification.ShopCatalog
 import com.mision.app.domain.model.Pet
 import com.mision.app.domain.model.PetMood
@@ -24,18 +30,17 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Nube, the mascot, rebuilt as vector layers from the supplied illustration
- * (docs/mascota/nube-referencia.jpeg).
+ * Nube, the mascot: the supplied illustration (docs/mascota/nube-referencia.jpeg)
+ * with its background removed, shipped as res/drawable-nodpi/mascota_nube.png.
  *
- * Every coordinate below is in the reference image's own pixel space
- * (1200 × 1200): the silhouette is a union of circles fitted to the drawing
- * (IoU 0.994) and the eyes, mouth and cheeks sit where the artist put them.
- * The whole stage is then scaled to whatever size the caller asks for, so the
- * character stays sharp from a 40 dp thumbnail to a tablet hero.
+ * Everything else is drawn in the illustration's own pixel space (1200 × 1200):
+ * hats, glasses, scarf, effects and scenes line up with the picture, and the
+ * moods replace its eyes and mouth with features drawn in the same style.
+ * The silhouette, a union of circles fitted to the drawing (IoU 0.994), is
+ * used to clip and tint the body.
  *
- * Depth is faked the 2.5D way: a back rim layer, a body layer and a face
- * layer that slide against each other while the cloud floats, plus a contact
- * shadow that shrinks as it rises.
+ * Depth is faked the 2.5D way: the cloud floats, breathes and tilts, its hat
+ * sways slightly behind, and a contact shadow shrinks as it rises.
  */
 internal object CloudGeometry {
     /** Visible stage around the cloud (room for hats above and the shadow below). */
@@ -66,9 +71,6 @@ internal object CloudGeometry {
     val rightEye = Offset(750f, 570f)
     const val EYE_WIDTH = 130f
     const val EYE_HEIGHT = 141f
-    val leftCheek = Offset(323f, 655f)
-    val rightCheek = Offset(850f, 655f)
-    const val CHEEK_RADIUS = 62f
 
     /** Puffs inset by [inset] and moved by [dy]; used for the outline and the inner layers. */
     fun silhouette(inset: Float, dy: Float = 0f): Path {
@@ -88,10 +90,7 @@ internal object CloudGeometry {
  * shared by all mascots on screen (drawing only happens on the main thread).
  */
 private object CloudPaths {
-    val outer: Path by lazy { CloudGeometry.silhouette(0f) }
     val body: Path by lazy { CloudGeometry.silhouette(CloudGeometry.OUTLINE) }
-    /** Lighter inner body, raised so a pale blue rim shows along the bottom of every puff. */
-    val inner: Path by lazy { CloudGeometry.silhouette(CloudGeometry.OUTLINE + 30f, dy = -22f) }
 
     val sceneDisc: Path by lazy { Path().apply { addOval(Rect(Offset(600f, 550f), 620f)) } }
 
@@ -226,8 +225,8 @@ private object CloudPaths {
 private val EyeInk = Color(0xFF0B0B14)
 private val EyeReflection = Color(0xFF3A4785)
 private val MouthInk = Color(0xFF2C1A18)
-private val CheekPink = Color(0xFFFEA2AF)
-private val CheekDeep = Color(0xFFFF8597)
+/** Body white of the illustration, used to cover its own eyes / mouth. */
+private val PhotoWhite = Color(0xFFFEFEFE)
 private const val TWO_PI = (2 * PI).toFloat()
 
 private fun styleOf(itemId: String?): String? = itemId?.let { ShopCatalog.byId(it)?.styleId }
@@ -239,6 +238,7 @@ private fun styleOf(itemId: String?): String? = itemId?.let { ShopCatalog.byId(i
  */
 internal fun DrawScope.drawCloudMascot(
     pet: Pet,
+    photo: ImageBitmap,
     palette: MascotPalette,
     phase: Float = 0f,
     blink: Float = 0f,
@@ -252,12 +252,13 @@ internal fun DrawScope.drawCloudMascot(
         translate(originX, originY)
         scale(scale, scale, Offset.Zero)
     }) {
-        drawStage(pet, palette, phase, blink, hop, moving)
+        drawStage(pet, photo, palette, phase, blink, hop, moving)
     }
 }
 
 private fun DrawScope.drawStage(
     pet: Pet,
+    photo: ImageBitmap,
     palette: MascotPalette,
     phase: Float,
     blink: Float,
@@ -288,12 +289,9 @@ private fun DrawScope.drawStage(
         rotate(look * 1.2f + rock, Offset(CloudGeometry.CENTER_X, CloudGeometry.CENTER_Y))
         scale(stretchX, stretchY, Offset(CloudGeometry.CENTER_X, CloudGeometry.BOTTOM))
     }) {
-        drawBody(palette, look)
+        drawPhotoCloud(photo, palette, pet.mood, blink)
         if (styleOf(equipped.accessory) == "scarf") drawScarf()
-        translate(look * 12f, 0f) {
-            drawFace(pet.mood, blink)
-            if (styleOf(equipped.accessory) == "glasses") drawGlasses()
-        }
+        if (styleOf(equipped.accessory) == "glasses") drawGlasses()
         translate(look * 6f, 0f) {
             styleOf(equipped.hat)?.let { drawHat(it) }
         }
@@ -327,54 +325,50 @@ private fun DrawScope.drawContactShadow(lift: Float) {
     )
 }
 
-private fun DrawScope.drawBody(palette: MascotPalette, look: Float) {
-    drawPath(CloudPaths.outer, palette.outline)
-    drawPath(
-        CloudPaths.body,
-        brush = Brush.verticalGradient(
-            listOf(palette.rimTop, palette.rimBottom),
-            startY = 180f,
-            endY = 960f,
-        ),
+/**
+ * The supplied illustration itself (res/drawable-nodpi/mascota_nube.png, the
+ * reference with its white background removed), placed exactly where it sits
+ * in reference space so every cosmetic lines up with it.
+ *
+ * Expressions other than the illustration's own smile are drawn on top: the
+ * original eyes / mouth are covered with the body's white first.
+ */
+private fun DrawScope.drawPhotoCloud(photo: ImageBitmap, palette: MascotPalette, mood: PetMood, blink: Float) {
+    drawImage(
+        image = photo,
+        dstOffset = IntOffset(57, 173),
+        dstSize = IntSize(1086, 799),
+        filterQuality = FilterQuality.High,
     )
-    clipPath(CloudPaths.body) {
-        // The inner layer slides against the rim as the cloud turns.
-        translate(-look * 7f, 0f) {
-            val innerBrush = if (palette.finish == MascotFinish.AURORA) {
-                Brush.horizontalGradient(
-                    listOf(Color(0xFFC9F1FF), Color(0xFFE2D9FF), Color(0xFFFFD6EA)),
-                    startX = 100f,
-                    endX = 1100f,
-                )
-            } else {
-                Brush.verticalGradient(
-                    listOf(palette.bodyTop, palette.bodyTop, palette.bodyBottom),
-                    startY = 200f,
-                    endY = 900f,
-                )
-            }
-            drawPath(CloudPaths.inner, brush = innerBrush)
+    val newEyes = mood != PetMood.FELIZ || blink >= 0.15f
+    val newMouth = mood != PetMood.FELIZ
+    if (newEyes) {
+        drawOval(PhotoWhite, Offset(358f, 495f), Size(141f, 152f))
+        drawOval(PhotoWhite, Offset(678f, 495f), Size(141f, 152f))
+    }
+    if (newMouth) drawOval(PhotoWhite, Offset(526f, 586f), Size(126f, 80f))
+
+    // Colours and skins tint the white body; the blue outline is kept.
+    if (palette != MascotPalette.Default) {
+        val tint = when (palette.finish) {
+            MascotFinish.AURORA -> Brush.horizontalGradient(
+                listOf(Color(0xFFB8E9FF), Color(0xFFD9CEFF), Color(0xFFFFC9E2)),
+                startX = 100f,
+                endX = 1100f,
+            )
+            MascotFinish.GALAXY -> SolidColor(palette.bodyTop)
+            else -> SolidColor(palette.bodyBottom)
         }
+        drawPath(CloudPaths.body, tint, blendMode = BlendMode.Multiply)
+    }
+    clipPath(CloudPaths.body) {
         when (palette.finish) {
             MascotFinish.GALAXY -> drawGalaxySpecks()
             MascotFinish.GOLD -> drawGoldSheen()
             else -> Unit
         }
-        // Soft top light and the glossy streaks of the original drawing.
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(Color.White.copy(alpha = 0.55f), Color.Transparent),
-                center = Offset(470f + look * 10f, 300f),
-                radius = 190f,
-            ),
-            radius = 190f,
-            center = Offset(470f + look * 10f, 300f),
-        )
-        rotate(-28f, Offset(118f, 705f)) {
-            drawOval(Color.White.copy(alpha = 0.75f), Offset(98f, 650f), Size(40f, 118f))
-        }
-        drawOval(Color.White.copy(alpha = 0.55f), Offset(360f, 880f), Size(96f, 22f))
     }
+    if (newEyes || newMouth) drawFace(mood, blink, mouth = newMouth)
 }
 
 private val galaxySpecks = listOf(
@@ -406,9 +400,7 @@ private fun DrawScope.drawGoldSheen() {
 
 // ---- Face ----------------------------------------------------------------
 
-private fun DrawScope.drawFace(mood: PetMood, blink: Float) {
-    drawCheek(CloudGeometry.leftCheek, mood)
-    drawCheek(CloudGeometry.rightCheek, mood)
+private fun DrawScope.drawFace(mood: PetMood, blink: Float, mouth: Boolean) {
 
     if (mood == PetMood.ORGULLOSO) {
         drawHappyClosedEye(CloudGeometry.leftEye)
@@ -418,6 +410,7 @@ private fun DrawScope.drawFace(mood: PetMood, blink: Float) {
         drawEye(CloudGeometry.rightEye, inward = -1f, blink = blink, tired = mood == PetMood.CANSADO)
     }
 
+    if (!mouth) return
     val line = Stroke(width = 12f, cap = StrokeCap.Round)
     when (mood) {
         PetMood.FELIZ -> drawPath(CloudPaths.smile, MouthInk, style = line)
@@ -492,19 +485,6 @@ private fun DrawScope.drawHappyClosedEye(center: Offset) {
         size = Size(104f, 84f),
         style = Stroke(width = 16f, cap = StrokeCap.Round),
     )
-}
-
-private fun DrawScope.drawCheek(center: Offset, mood: PetMood) {
-    val glow = if (mood == PetMood.CELEBRANDO || mood == PetMood.ORGULLOSO) 0.55f else 0.38f
-    drawCircle(
-        brush = Brush.radialGradient(listOf(CheekPink.copy(alpha = glow), Color.Transparent), center, 96f),
-        radius = 96f,
-        center = center,
-    )
-    val r = CloudGeometry.CHEEK_RADIUS
-    drawCircle(Brush.radialGradient(listOf(CheekPink, CheekDeep), center, r), r, center)
-    drawCircle(Color.White.copy(alpha = 0.85f), 14f, Offset(center.x - 18f, center.y - 22f))
-    drawCircle(Color.White.copy(alpha = 0.85f), 7f, Offset(center.x + 22f, center.y - 15f))
 }
 
 // ---- Cosmetics -----------------------------------------------------------

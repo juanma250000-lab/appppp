@@ -18,21 +18,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.mision.app.R
 import com.mision.app.domain.model.Pet
 import com.mision.app.presentation.LocalAnimationsEnabled
 import com.mision.app.presentation.theme.Dimens
 import kotlinx.coroutines.launch
 
 /**
- * The mascot, Nube, drawn by [drawCloudMascot] so it stays crisp at any size
- * and can wear every cosmetic from the shop.
+ * The mascot, Nube: the supplied cloud illustration, animated and dressed by
+ * [drawCloudMascot] with every cosmetic from the shop.
  *
  * Idle motion (floating, breathing, a slight turn and blinking) follows the
  * "Animaciones" setting and the system "remove animations" preference through
@@ -57,6 +60,7 @@ fun AnimatedPet(
     val label = accessibilityLabel
         ?: "Mascota ${pet.name}, ${pet.mood.displayName.lowercase()}"
     val palette = remember(pet.equipped, pet.mood) { mascotPaletteFor(pet.equipped, pet.mood) }
+    val photo = ImageBitmap.imageResource(R.drawable.mascota_nube)
     val hop = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -91,7 +95,7 @@ fun AnimatedPet(
 
     if (!animate) {
         // No infinite transition at all: a still cloud costs a single draw.
-        Canvas(modifier = sized) { drawCloudMascot(pet, palette) }
+        Canvas(modifier = sized) { drawCloudMascot(pet, photo, palette) }
         return
     }
 
@@ -120,6 +124,7 @@ fun AnimatedPet(
     Canvas(modifier = sized) {
         drawCloudMascot(
             pet = pet,
+            photo = photo,
             palette = palette,
             phase = phase,
             blink = blinkAmount(blinkCycle),
@@ -144,5 +149,6 @@ internal fun blinkAmount(cycle: Float): Float {
 @Composable
 fun StaticPet(pet: Pet, modifier: Modifier = Modifier) {
     val palette = remember(pet.equipped, pet.mood) { mascotPaletteFor(pet.equipped, pet.mood) }
-    Canvas(modifier = modifier) { drawCloudMascot(pet, palette) }
+    val photo = ImageBitmap.imageResource(R.drawable.mascota_nube)
+    Canvas(modifier = modifier) { drawCloudMascot(pet, photo, palette) }
 }

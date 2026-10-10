@@ -262,7 +262,7 @@ private fun PetHero(
         ) {
             AnimatedPet(
                 pet = pet,
-                size = 176.dp,
+                size = 210.dp,
             )
             PetSpeechBubble(
                 text = speech,

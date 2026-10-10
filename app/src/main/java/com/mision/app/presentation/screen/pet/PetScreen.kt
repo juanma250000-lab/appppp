@@ -74,7 +74,7 @@ fun PetScreen(onOpenShop: () -> Unit) {
             ) {
                 AnimatedPet(
                     pet = state.pet,
-                    size = 230.dp,
+                    size = 260.dp,
                     interactive = true,
                     // Hops whenever feeding, playing or resting succeeds.
                     reactionKey = state.infoMessage,
